@@ -13,6 +13,21 @@ const Products = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const productsPerPage = 12;
 
+  // 🖼️ دالة تنتظر تحميل كل صور الصفحة قبل إزالة اللودر
+  const waitForPageImages = (data) => {
+    return Promise.all(
+      data.map(
+        (p) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.src = p.image_url;
+            img.onload = resolve;
+            img.onerror = resolve; // لو الصورة فيها مشكلة نكمل
+          })
+      )
+    );
+  };
+
   // 🧠 دالة تجيب المنتجات حسب الصفحة من Supabase
   const fetchProducts = async (page = 1) => {
     setLoading(true);
@@ -22,7 +37,7 @@ const Products = () => {
 
     const { data, error, count } = await supabase
       .from("products")
-      .select("*", { count: "exact" }) // ✅ عشان نجيب العدد الكلي
+      .select("*", { count: "exact" })
       .range(start, end);
 
     if (error) {
@@ -33,6 +48,9 @@ const Products = () => {
 
     setProducts(data);
     setTotalProducts(count);
+
+    // 🕒 ننتظر تحميل صور الصفحة قبل إزالة اللودر
+    await waitForPageImages(data);
     setLoading(false);
   };
 
