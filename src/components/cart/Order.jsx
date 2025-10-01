@@ -273,10 +273,14 @@ const handlePrint = () => {
         </div>
 
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <CreditCard size={16} />
-            Payment Screenshot
-          </label>
+        <label className="flex flex-col items-start text-sm font-semibold text-gray-700">
+  <div className="flex items-center gap-2">
+    <CreditCard size={16} />
+    <span>Payment Screenshot</span>
+  </div>
+  <p className="text-gray-500 text-xs">(Via vodafone cash <strong>01004201439</strong>)</p>
+</label>
+
           <div className="relative">
             <input
               type="file"
