@@ -3,7 +3,7 @@ import ProductCard from "./Productcard";
 import CustomProduct from "./CustomProduct";
 import Header from "../header/Header";
 import { supabase } from "../../../supabaseClient";
-import '../../../src/index.css'; // تأكد من استيراد ملف CSS
+import "../../../src/index.css"; // تأكد من استيراد ملف CSS
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -11,22 +11,25 @@ const Products = () => {
   const [loading, setLoading] = useState(true); // 🌀 حالة اللودينج
   const productsPerPage = 12; // 👈 عدد المنتجات في الصفحة
 
-  const fetchProducts = async () => {
-    const { data, error } = await supabase.from("products").select("*");
-    if (error) {
-      console.error(error);
-    } else {
-      setProducts(data);
-    }
-  setTimeout(() => {
+  // 🧠 دالة تجيب كل المنتجات
+const fetchProducts = async () => {
+  setLoading(true);
+  const { data, error } = await supabase.from("products").select("*");
+  if (error) {
+    console.error(error);
     setLoading(false);
-  }, 1500);  
+    return;
+  }
+
+  setProducts(data);
+  setLoading(false);
 };
 
+
+  // 🧠 تحميل البيانات أول ما الصفحة تفتح + الاشتراك في التحديثات
   useEffect(() => {
     fetchProducts();
 
-    // ✨ الاشتراك في أي تغييرات بتحصل على جدول products (Realtime)
     const channel = supabase
       .channel("products-changes")
       .on(
@@ -36,8 +39,7 @@ const Products = () => {
           schema: "public",
           table: "products",
         },
-        (payload) => {
-          console.log("Realtime update:", payload);
+        () => {
           fetchProducts();
         }
       )
@@ -48,7 +50,7 @@ const Products = () => {
     };
   }, []);
 
-  // 🧠 حساب حدود الصفحة الحالية
+  // 🧮 حساب حدود الصفحة الحالية
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
   const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -59,27 +61,23 @@ const Products = () => {
   // 🌀 شاشة التحميل
   if (loading) {
     return (
-    <div className="flex flex-col items-center justify-center h-screen bg-fuchsia-950">
-  <div className="h-40 w-40 rounded-full flex items-center justify-center animate-spin-slow mb-4 border-4 border-yellow-500 border-t-transparent">
-    <img
-      src="/IMG_4195.png"
-      alt="Loading Logo"
-      className="h-35 w-35 object-contain rounded-full"
-    />
-  </div>
-  <p className="text-white text-lg font-medium">Loading...</p>
-</div>
-
+      <div className="flex flex-col items-center justify-center h-screen bg-fuchsia-950">
+        <div className="h-40 w-40 rounded-full flex items-center justify-center animate-spin-slow mb-4 border-4 border-yellow-500 border-t-transparent">
+          <img
+            src="/IMG_4195.png"
+            alt="Loading Logo"
+            className="h-35 w-35 object-contain rounded-full"
+          />
+        </div>
+        <p className="text-white text-lg font-medium">Loading...</p>
+      </div>
     );
   }
 
   return (
     <>
       <Header />
-      <div
-        className="flex flex-col items-center justify-center p-8 mt-20"
-        id="products"
-      >
+      <div className="flex flex-col items-center justify-center p-8 mt-20" id="products">
         {/* شبكة المنتجات */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           <CustomProduct />
@@ -94,7 +92,14 @@ const Products = () => {
             {Array.from({ length: totalPages }, (_, index) => (
               <button
                 key={index}
-                onClick={() => setCurrentPage(index + 1)}
+                onClick={() => {
+                  // 🌀 لما نغير الصفحة نرجّع اللودر تاني
+                  setLoading(true);
+                  setCurrentPage(index + 1);
+                  setTimeout(() => {
+                    setLoading(false);
+                  }, 800);
+                }}
                 className={`px-4 py-2 rounded-lg border transition ${
                   currentPage === index + 1
                     ? "bg-yellow-500 text-black font-bold"

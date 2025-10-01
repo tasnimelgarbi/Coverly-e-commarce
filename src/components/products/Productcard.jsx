@@ -15,6 +15,7 @@ const FuturisticProductCard = ({
   const [isFloating, setIsFloating] = useState(true);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false); // 🆕 حالة تحميل الصورة
 
   useEffect(() => {
     const interval = setInterval(() => setIsFloating(prev => !prev), 3000);
@@ -44,10 +45,10 @@ const FuturisticProductCard = ({
       quantity: 1,
     };
     cart.push(newItem);
-localStorage.setItem("cart", JSON.stringify(cart));
+    localStorage.setItem("cart", JSON.stringify(cart));
 
-// حدث مخصص لتحديث الهيدر
-window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
+    // حدث مخصص لتحديث الهيدر
+    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
     await new Promise(resolve => setTimeout(resolve, 500));
     setIsAddingToCart(false);
     setBrand(""); setModel(""); setPrice(0);
@@ -64,9 +65,6 @@ window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
 
   return (
     <div className="relative w-full max-w-sm mx-auto font-sans">
-      {/* Animated background glow */}
-      {/* <div className="absolute -inset-4 bg-gradient-to-r from-purple-900 via-fuchsia-500/30 to-yellow-500/20 rounded-3xl blur-xl opacity-75 animate-pulse"></div> */}
-
       <div className="relative group">
         <div className="relative backdrop-blur-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-900/80 rounded-3xl border border-white overflow-hidden">
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/50 via-fuchsia-400/40 to-yellow-400/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
@@ -79,7 +77,20 @@ window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
                 <div className="relative w-48 h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-black/70 border border-fuchsia-400/40 shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-400/20 via-transparent to-yellow-400/20 rounded-2xl"></div>
                   <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-400/30 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <img src={img} alt="Product" loading="lazy" className="relative z-10 w-full h-full object-cover rounded-2xl"/>
+
+                  {/* 🆕 Skeleton أثناء تحميل الصورة */}
+                  {!imgLoaded && (
+                    <div className="absolute inset-0 bg-gray-800 animate-pulse rounded-2xl"></div>
+                  )}
+
+                  <img
+                    src={img}
+                    alt="Product"
+                    loading="lazy"
+                    onLoad={() => setImgLoaded(true)}
+                    className={`relative z-10 w-full h-full object-cover rounded-2xl transition-opacity duration-500 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+                  />
+
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent rounded-2xl"></div>
                 </div>
                 <div className="absolute -top-2 -right-2 w-3 h-3 bg-fuchsia-400 rounded-full animate-ping opacity-75"></div>
