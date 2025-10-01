@@ -4,31 +4,41 @@ import CustomProduct from "./CustomProduct";
 import Header from "../header/Header";
 import { supabase } from "../../../supabaseClient";
 import "../../../src/index.css"; // تأكد من استيراد ملف CSS
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true); // 🌀 حالة اللودينج
-  const productsPerPage = 12; // 👈 عدد المنتجات في الصفحة
+  const [loading, setLoading] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const productsPerPage = 12;
 
-  // 🧠 دالة تجيب كل المنتجات
-const fetchProducts = async () => {
-  setLoading(true);
-  const { data, error } = await supabase.from("products").select("*");
-  if (error) {
-    console.error(error);
+  // 🧠 دالة تجيب المنتجات حسب الصفحة من Supabase
+  const fetchProducts = async (page = 1) => {
+    setLoading(true);
+
+    const start = (page - 1) * productsPerPage;
+    const end = start + productsPerPage - 1;
+
+    const { data, error, count } = await supabase
+      .from("products")
+      .select("*", { count: "exact" }) // ✅ عشان نجيب العدد الكلي
+      .range(start, end);
+
+    if (error) {
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+
+    setProducts(data);
+    setTotalProducts(count);
     setLoading(false);
-    return;
-  }
+  };
 
-  setProducts(data);
-  setLoading(false);
-};
-
-
-  // 🧠 تحميل البيانات أول ما الصفحة تفتح + الاشتراك في التحديثات
+  // 🧠 تحميل الصفحة الأولى + الاشتراك في التحديثات
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(1);
 
     const channel = supabase
       .channel("products-changes")
@@ -40,7 +50,7 @@ const fetchProducts = async () => {
           table: "products",
         },
         () => {
-          fetchProducts();
+          fetchProducts(currentPage);
         }
       )
       .subscribe();
@@ -48,15 +58,11 @@ const fetchProducts = async () => {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🧮 حساب حدود الصفحة الحالية
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
-
   // 🧮 عدد الصفحات الكلي
-  const totalPages = Math.ceil(products.length / productsPerPage);
+  const totalPages = Math.ceil(totalProducts / productsPerPage);
 
   // 🌀 شاشة التحميل
   if (loading) {
@@ -81,34 +87,52 @@ const fetchProducts = async () => {
         {/* شبكة المنتجات */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           <CustomProduct />
-          {currentProducts.map((p) => (
+          {products.map((p) => (
             <ProductCard key={p.id} img={p.image_url} name={p.name} />
           ))}
         </div>
 
-        {/* أزرار الصفحات */}
+        {/* ✅ نظام ترقيم بسيط: سهم يمين - رقم الصفحة - سهم شمال */}
         {totalPages > 1 && (
-          <div className="flex justify-center mt-10 flex-wrap gap-2">
-            {Array.from({ length: totalPages }, (_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  // 🌀 لما نغير الصفحة نرجّع اللودر تاني
-                  setLoading(true);
-                  setCurrentPage(index + 1);
-                  setTimeout(() => {
-                    setLoading(false);
-                  }, 800);
-                }}
-                className={`px-4 py-2 rounded-lg border transition ${
-                  currentPage === index + 1
-                    ? "bg-yellow-500 text-black font-bold"
-                    : "bg-transparent border-yellow-400 text-yellow-400 hover:bg-yellow-500 hover:text-black"
-                }`}
-              >
-                {index + 1}
-              </button>
-            ))}
+          <div className="flex items-center justify-center mt-10 gap-4">
+            {/* ⬅️ زر الصفحة السابقة */}
+            <button
+              onClick={() => {
+                if (currentPage > 1) {
+                  const newPage = currentPage - 1;
+                  setCurrentPage(newPage);
+                  fetchProducts(newPage);
+                }
+              }}
+              className={`p-2 rounded-full border border-yellow-400 text-yellow-400 hover:bg-yellow-500 hover:text-black transition ${
+                currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            {/* رقم الصفحة الحالية */}
+            <span className="text-yellow-400 font-bold text-lg">
+              {currentPage} / {totalPages}
+            </span>
+
+            {/* ➡️ زر الصفحة التالية */}
+            <button
+              onClick={() => {
+                if (currentPage < totalPages) {
+                  const newPage = currentPage + 1;
+                  setCurrentPage(newPage);
+                  fetchProducts(newPage);
+                }
+              }}
+              className={`p-2 rounded-full border border-yellow-400 text-yellow-400 hover:bg-yellow-500 hover:text-black transition ${
+                currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         )}
       </div>
