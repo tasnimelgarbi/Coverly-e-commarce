@@ -79,7 +79,7 @@ window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
                 <div className="relative w-48 h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-black/70 border border-fuchsia-400/40 shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-400/20 via-transparent to-yellow-400/20 rounded-2xl"></div>
                   <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-400/30 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <img src={img} alt="Product" className="relative z-10 w-full h-full object-cover rounded-2xl transform group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_0_25px_rgba(255,255,0,0.6)]"/>
+                  <img src={img} alt="Product" loading="lazy" className="relative z-10 w-full h-full object-cover rounded-2xl transform group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_0_25px_rgba(255,255,0,0.6)]"/>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent rounded-2xl"></div>
                 </div>
                 <div className="absolute -top-2 -right-2 w-3 h-3 bg-fuchsia-400 rounded-full animate-ping opacity-75"></div>
