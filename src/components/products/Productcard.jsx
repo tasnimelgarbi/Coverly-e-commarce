@@ -65,10 +65,10 @@ window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
   return (
     <div className="relative w-full max-w-sm mx-auto font-sans">
       {/* Animated background glow */}
-      <div className="absolute -inset-4 bg-gradient-to-r from-purple-900 via-fuchsia-500/30 to-yellow-500/20 rounded-3xl blur-xl opacity-75 animate-pulse"></div>
+      {/* <div className="absolute -inset-4 bg-gradient-to-r from-purple-900 via-fuchsia-500/30 to-yellow-500/20 rounded-3xl blur-xl opacity-75 animate-pulse"></div> */}
 
       <div className="relative group">
-        <div className="relative backdrop-blur-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-900/80 rounded-3xl border border-white shadow-2xl overflow-hidden transform transition-all duration-700">
+        <div className="relative backdrop-blur-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-900/80 rounded-3xl border border-white overflow-hidden">
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/50 via-fuchsia-400/40 to-yellow-400/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
           <div className="absolute inset-[1px] rounded-3xl bg-gradient-to-br from-purple-950/60 via-fuchsia-900/50 to-yellow-900/30"></div>
 
@@ -79,7 +79,7 @@ window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
                 <div className="relative w-48 h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-black/70 border border-fuchsia-400/40 shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-400/20 via-transparent to-yellow-400/20 rounded-2xl"></div>
                   <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-400/30 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <img src={img} alt="Product" loading="lazy" className="relative z-10 w-full h-full object-cover rounded-2xl transform group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_0_25px_rgba(255,255,0,0.6)]"/>
+                  <img src={img} alt="Product" loading="lazy" className="relative z-10 w-full h-full object-cover rounded-2xl"/>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent rounded-2xl"></div>
                 </div>
                 <div className="absolute -top-2 -right-2 w-3 h-3 bg-fuchsia-400 rounded-full animate-ping opacity-75"></div>
