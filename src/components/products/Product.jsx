@@ -38,6 +38,7 @@ const Products = () => {
     const { data, error, count } = await supabase
       .from("products")
       .select("*", { count: "exact" })
+      .order('created_at', { ascending: false }) // المنتجات الأحدث أول
       .range(start, end);
 
     if (error) {

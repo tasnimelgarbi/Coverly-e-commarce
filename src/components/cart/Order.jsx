@@ -22,16 +22,23 @@ export default function Order({ cart = [], total = 0, onPlaceOrder }) {
   const [discountInput, setDiscountInput] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(null);
 
-  const handleApplyDiscount = () => {
-    const found = discountCodes.find((d) => d.code === discountInput.trim());
-    if (!found) {
-      alert("Invalid or already used code.");
-      return;
-    }
-    setAppliedDiscount(found);
-    setDiscountCodes((prev) => prev.filter((d) => d.code !== found.code)); // 🗑️ remove from array
-    setDiscountInput("");
-  };
+ const handleApplyDiscount = () => {
+  if (appliedDiscount) {
+    alert("You can only apply one discount code.");
+    return;
+  }
+
+  const found = discountCodes.find((d) => d.code === discountInput.trim());
+  if (!found) {
+    alert("Invalid or already used code.");
+    return;
+  }
+
+  setAppliedDiscount(found);
+  setDiscountCodes((prev) => prev.filter((d) => d.code !== found.code));
+  setDiscountInput("");
+};
+
 
   // ✅ السعر بعد الخصم
   const finalTotal = appliedDiscount
