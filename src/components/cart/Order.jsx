@@ -747,7 +747,6 @@ export default function Order({
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 name="paymentFile"
                 onChange={handleChange}
                 className="hidden"
