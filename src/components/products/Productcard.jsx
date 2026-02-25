@@ -1,187 +1,720 @@
-import React, { useState, useEffect } from "react";
-import { ShoppingCart, Smartphone, Zap } from "lucide-react";
-import { FaApple, FaAndroid, FaMobile } from 'react-icons/fa';
+import React, {
+  memo,
+  useMemo,
+  useState,
+  useCallback,
+  useTransition,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+} from "react";
+import { createPortal } from "react-dom";
+import { ShoppingCart, Smartphone } from "lucide-react";
+import { FaApple, FaAndroid } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 
-const FuturisticProductCard = ({
-  img = "https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400&h=400&fit=crop",
-  phones = {
-    iPhone: 140,
-    Android: 120,
-  },
-}) => {
-  const [brand, setBrand] = useState("");
-  const [model, setModel] = useState("");
-  const [price, setPrice] = useState(0);
-  const [isFloating, setIsFloating] = useState(true);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false); // 🆕 حالة تحميل الصورة
+const ANDROID_BRANDS = [
+  "Samsung",
+  "OPPO",
+  "HONOR",
+  "HUAWEI",
+  "realme",
+  "Redmi",
+  "Xiaomi",
+  "vivo",
+  "Infinix",
+];
 
-  useEffect(() => {
-    const interval = setInterval(() => setIsFloating(prev => !prev), 3000);
-    return () => clearInterval(interval);
+const ANDROID_HINTS = {
+  Samsung: "مثال: A54 / S23 / A34",
+  OPPO: "مثال: Reno 8 / A78 / Find X5",
+  HONOR: "مثال: X9a / Magic 6 / X8",
+  HUAWEI: "مثال: Nova 11 / P60 / Mate 50",
+  realme: "مثال: 11 Pro / C55 / GT Neo",
+  Redmi: "مثال: Note 12 / Note 13 / 12C",
+  Xiaomi: "مثال: 13T / 12T / Poco X5",
+  vivo: "مثال: V29 / Y36 / V27",
+  Infinix: "مثال: Note 30 / Hot 40 / Zero",
+};
+
+const IPHONE_MODELS = [
+  "iPhone 7",
+  "iPhone 7 Plus",
+  "iPhone 8",
+  "iPhone 8 Plus",
+  "iPhone X",
+  "iPhone XR",
+  "iPhone XS",
+  "iPhone XS Max",
+  "iPhone 11",
+  "iPhone 11 Pro",
+  "iPhone 11 Pro Max",
+  "iPhone 12",
+  "iPhone 12 mini",
+  "iPhone 12 Pro",
+  "iPhone 12 Pro Max",
+  "iPhone 13",
+  "iPhone 13 mini",
+  "iPhone 13 Pro",
+  "iPhone 13 Pro Max",
+  "iPhone 14",
+  "iPhone 14 Plus",
+  "iPhone 14 Pro",
+  "iPhone 14 Pro Max",
+  "iPhone 15",
+  "iPhone 15 Plus",
+  "iPhone 15 Pro",
+  "iPhone 15 Pro Max",
+  "iPhone 16",
+  "iPhone 16 Plus",
+  "iPhone 16 Pro",
+  "iPhone 16 Pro Max",
+  "iPhone 17",
+  "iPhone 17 Plus",
+  "iPhone 17 Air",
+  "iPhone 17 Pro",
+  "iPhone 17 Pro Max",
+];
+
+const CASE_TYPES = [
+  { key: "normal", label: "كفر عادي" },
+  { key: "magic", label: "كفر ماجيك (أكليريك)" },
+  { key: "wallet", label: "كفر محفظة في الضهر" },
+];
+
+function isIphone17Family(model) {
+  return String(model || "").toLowerCase().includes("iphone 17");
+}
+
+function calcIphonePrice(caseType, model) {
+  const is17 = isIphone17Family(model);
+  if (caseType === "normal") return is17 ? 150 : 140;
+  if (caseType === "magic") return is17 ? 250 : 200;
+  if (caseType === "wallet") return is17 ? 200 : 170;
+  return 0;
+}
+
+// ✅ thumbnail helper (cheap + keeps grid fast)
+function toThumb(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    const host = u.hostname || "";
+    const isUnsplash = host.includes("unsplash.com");
+
+    if (isUnsplash) {
+      u.searchParams.set("w", "420");
+      u.searchParams.set("q", "70");
+      u.searchParams.set("auto", "format");
+      u.searchParams.set("fit", "crop");
+      return u.toString();
+    }
+
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+/* ================= Glass Select (Portal Fix) ================= */
+const GlassSelect = memo(function GlassSelect({
+  value,
+  onChange,
+  options = [], // [{value,label,meta}]
+  placeholder = "اختار...",
+  searchPlaceholder = "ابحث هنا...",
+  disabled = false,
+  icon = null,
+  renderOption,
+  maxItems = 120,
+}) {
+  const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const selected = useMemo(() => {
+    return options.find((o) => o.value === value) || null;
+  }, [options, value]);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return options;
+    return options.filter((o) => String(o.label).toLowerCase().includes(s));
+  }, [options, q]);
+
+  const updatePos = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPos({
+      top: r.bottom + 8, // mt-2
+      left: r.left,
+      width: r.width,
+    });
   }, []);
 
-  const handleBrandSelect = (b) => {
-    setBrand(b);
-    setModel("");
-    setPrice(phones[b] || 0);
-    setDropdownOpen(false);
-  };
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePos();
 
-  const handleModelChange = (e) => setModel(e.target.value);
+    const onScroll = () => updatePos();
+    const onResize = () => updatePos();
 
-  const addToCart = async () => {
-    if (!brand || !model.trim()) return;
-    setIsAddingToCart(true);
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const newItem = {
-      id: Date.now(),
-      name: model.trim(),
-      brand,
-      price,
-      image: img,
-      type: brand || "No type", // 👈 هنا أضفنا الـ type
-      quantity: 1,
+    // capture scroll inside any container too
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
-    cart.push(newItem);
-    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [open, updatePos]);
 
-    // حدث مخصص لتحديث الهيدر
-    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setIsAddingToCart(false);
-    setBrand(""); setModel(""); setPrice(0);
-  };
+  useEffect(() => {
+    const close = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
 
-  const isAddToCartDisabled = !brand || !model.trim() || isAddingToCart;
-  const getBrandIcon = (b) => {
-    switch(b) {
-      case "iPhone": return <FaApple className="inline-block mr-2 text-yellow-400" />;
-      case "Android": return <FaAndroid className="inline-block mr-2 text-fuchsia-400" />;
-      default: return <FaMobile className="inline-block mr-2 text-purple-400" />;
-    }
-  };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, []);
+
+  const dropdown = (
+    <AnimatePresence>
+      {open && !disabled && (
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ duration: 0.16 }}
+          style={{ top: pos.top, left: pos.left, width: pos.width }}
+          className="
+            fixed z-[9999]
+            overflow-hidden rounded-2xl
+            border border-white/15
+            bg-black/70 backdrop-blur-2xl
+            shadow-2xl
+          "
+        >
+          <div className="p-3 border-b border-white/10">
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="
+                w-full rounded-xl
+                bg-white/10 px-3 py-2
+                text-white placeholder:text-white/45
+                outline-none
+                focus:ring-2 focus:ring-yellow-200/25
+              "
+            />
+          </div>
+
+          <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-3 text-sm font-bold text-white/60">
+                لا توجد نتائج
+              </div>
+            ) : (
+              filtered.slice(0, maxItems).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange?.(opt.value, opt);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                  className="
+                    w-full px-4 py-3 text-right
+                    text-white/90
+                    transition
+                    hover:bg-yellow-300/20
+                  "
+                >
+                  {renderOption ? (
+                    renderOption(opt, opt.value === value)
+                  ) : (
+                    <div className="font-bold">{opt.label}</div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
-    <div className="relative w-full max-w-sm mx-auto font-sans">
-      <div className="relative group">
-        <div className="relative backdrop-blur-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-900/80 rounded-3xl border border-white overflow-hidden">
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/50 via-fuchsia-400/40 to-yellow-400/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
-          <div className="absolute inset-[1px] rounded-3xl bg-gradient-to-br from-purple-950/60 via-fuchsia-900/50 to-yellow-900/30"></div>
+    <div ref={wrapRef} className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((p) => !p);
+        }}
+        className={[
+          "w-full appearance-none rounded-[22px] border-2 px-10 py-3.5 text-sm font-black",
+          "bg-white/10 text-white",
+          "border-black/70",
+          "focus:outline-none focus:ring-2 focus:ring-yellow-200/25",
+          disabled ? "opacity-60 cursor-not-allowed" : "",
+        ].join(" ")}
+      >
+        {icon ? (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</span>
+        ) : null}
 
-          <div className="relative z-10 p-6">
-            {/* Product image */}
-            <div className="relative mb-8 flex justify-center">
-              <div className={`relative transition-transform duration-3000 ease-in-out ${isFloating ? "translate-y-0" : "-translate-y-2"}`}>
-                <div className="relative w-48 h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-black/70 border border-fuchsia-400/40 shadow-2xl">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-400/20 via-transparent to-yellow-400/20 rounded-2xl"></div>
-                  <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-400/30 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <span className={selected ? "text-white" : "text-white/55"}>
+          {selected ? selected.label : placeholder}
+        </span>
 
-                  {/* 🆕 Skeleton أثناء تحميل الصورة */}
-                  {!imgLoaded && (
-                    <div className="absolute inset-0 bg-gray-800 animate-pulse rounded-2xl"></div>
-                  )}
+        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/80">
+          ▾
+        </span>
+      </button>
 
-                  <img
-                    src={img}
-                    alt="Product"
-                    loading="lazy"
-                    onLoad={() => setImgLoaded(true)}
-                    className={`relative z-10 w-full h-full object-cover rounded-2xl transition-opacity duration-500 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-                  />
+      {/* ✅ Portal to body => no clipping by card/container */}
+      {typeof document !== "undefined" ? createPortal(dropdown, document.body) : null}
+    </div>
+  );
+});
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent rounded-2xl"></div>
-                </div>
-                <div className="absolute -top-2 -right-2 w-3 h-3 bg-fuchsia-400 rounded-full animate-ping opacity-75"></div>
-                <div className="absolute -bottom-2 -left-2 w-2 h-2 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: "1s" }}></div>
+const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }) {
+  const [device, setDevice] = useState(""); // "iPhone" | "Android"
+
+  // iPhone
+  const [caseType, setCaseType] = useState("");
+  const [iphoneModel, setIphoneModel] = useState("");
+
+  // Android
+  const [androidBrand, setAndroidBrand] = useState("");
+  const [androidModel, setAndroidModel] = useState("");
+
+  const [isAdding, setIsAdding] = useState(false);
+
+  // ✅ keep UI responsive when changing selects/inputs in big grids
+  const [, startTransition] = useTransition();
+
+  const price = useMemo(() => {
+    if (device === "iPhone") {
+      if (!caseType || !iphoneModel) return 0;
+      return calcIphonePrice(caseType, iphoneModel);
+    }
+    if (device === "Android") {
+      if (!androidBrand || !androidModel.trim()) return 0;
+      return 120;
+    }
+    return 0;
+  }, [device, caseType, iphoneModel, androidBrand, androidModel]);
+
+  const canAdd = useMemo(() => {
+    if (device === "iPhone") return !!caseType && !!iphoneModel && price > 0;
+    if (device === "Android") return !!androidBrand && !!androidModel.trim() && price > 0;
+    return false;
+  }, [device, caseType, iphoneModel, androidBrand, androidModel, price]);
+
+  // ✅ stable handlers (avoid needless rerenders when parent re-renders many cards)
+  const resetAll = useCallback(() => {
+    setDevice("");
+    setCaseType("");
+    setIphoneModel("");
+    setAndroidBrand("");
+    setAndroidModel("");
+  }, []);
+
+ const onDeviceChange = useCallback(
+  (next) => {
+    startTransition(() => {
+      // ✅ لو نفس الجهاز متفتح.. اقفله
+      if (device === next) {
+        resetAll(); // بيرجع كل حاجة فاضية + device=""
+        return;
+      }
+
+      // ✅ غير الجهاز وافضي اختيارات الجهاز التاني
+      setDevice(next);
+      setCaseType("");
+      setIphoneModel("");
+      setAndroidBrand("");
+      setAndroidModel("");
+    });
+  },
+  [device, resetAll, startTransition]
+);
+
+  const addToCart = useCallback(async () => {
+    if (!canAdd) return;
+
+    setIsAdding(true);
+    const pickedCaseLabel = CASE_TYPES.find((x) => x.key === caseType)?.label;
+
+    const title =
+      device === "iPhone"
+        ? `${iphoneModel} • ${pickedCaseLabel}`
+        : `${androidBrand} • ${androidModel.trim()}`;
+
+    const newItem = {
+      id: Date.now(),
+      product_id: id ?? null,
+      title,
+      name: title,
+      device,
+      caseType: device === "iPhone" ? caseType : null,
+      iphoneModel: device === "iPhone" ? iphoneModel : null,
+      androidBrand: device === "Android" ? androidBrand : null,
+      androidModel: device === "Android" ? androidModel.trim() : null,
+      price,
+      image: img,
+      quantity: 1,
+    };
+
+    // ✅ avoid blocking the main thread (especially when cart grows)
+    queueMicrotask(() => {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      cart.push(newItem);
+      localStorage.setItem("cart", JSON.stringify(cart));
+      window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
+    });
+
+    await new Promise((r) => setTimeout(r, 350));
+    setIsAdding(false);
+    resetAll();
+  }, [canAdd, caseType, device, iphoneModel, androidBrand, androidModel, price, img, id, resetAll]);
+
+  const priceText = price ? `${price} EGP` : "—";
+  const bubbleText = price ? priceText : "اختار موديل";
+
+  // ✅ use a smaller image for the grid cards (big perf win)
+  const thumbImg = useMemo(() => toThumb(img), [img]);
+
+  return (
+    <div className="w-full max-w-sm mx-auto">
+      <div
+        className="
+          group relative overflow-visible rounded-[32px]
+          border-2 border-black/70
+          bg-white/10
+          shadow-[0_18px_0_rgba(0,0,0,0.60)]
+          transition-transform duration-200
+          md:hover:-translate-y-1
+          [content-visibility:auto]
+          [contain:layout_style]
+        "
+      >
+        {/* ===== Comic packaging header (hang tab) ===== */}
+        <div className="relative px-4 pt-4">
+          <div
+            className="
+              relative mx-auto w-[86%] rounded-2xl
+              border-2 border-black/70
+              bg-white/10
+              shadow-[0_8px_0_rgba(0,0,0,0.55)]
+            "
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-white font-black text-sm">{name}</p>
+                <p className="text-white/75 text-[11px] font-bold mt-0.5">
+                  اختار جهازك بسرعة
+                </p>
               </div>
-            </div>
 
-            {/* Brand Dropdown */}
-            <div className="space-y-4 mb-4 relative">
-              <div className="relative">
-                <Smartphone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-fuchsia-400 w-4 h-4 z-10" />
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full text-left pl-10 pr-10 py-4 rounded-xl bg-gray-900/60 backdrop-blur-sm text-white border border-gray-600/50 flex items-center justify-between"
-                >
-                  <span>{brand ? <>{getBrandIcon(brand)} {brand}</> : "Select Device Brand"}</span>
-                  <span className="rotate-45 inline-block border-r-2 border-b-2 border-yellow-400 w-3 h-3 transform"></span>
-                </button>
-
-                {dropdownOpen && (
-                  <ul className="absolute z-10 mt-1 w-full bg-gray-900 text-white rounded-xl border border-gray-600/50 max-h-60 overflow-auto shadow-lg">
-                    {Object.keys(phones).map((b) => (
-                      <li key={b} onClick={() => handleBrandSelect(b)} className="px-4 py-3 hover:bg-purple-500/30 cursor-pointer flex items-center">
-                        {getBrandIcon(b)} {b}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Model input */}
-              {brand && (
-                <div className="relative animate-fadeIn">
-                  <Zap className="absolute left-3 top-1/2 transform -translate-y-1/2 text-yellow-400 w-4 h-4 z-10" />
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={handleModelChange}
-                    placeholder={`Enter your ${brand} model...`}
-                    className="w-full pl-10 pr-4 py-4 rounded-xl bg-gray-900/60 text-white border border-gray-600/50 focus:border-fuchsia-500 focus:ring-2 focus:ring-yellow-400/50 transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-fuchsia-500/20 placeholder-gray-400"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Price */}
-            <div className="text-center mb-6">
-              <div className="relative inline-block">
-                {price > 0 && <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-yellow-400/30 blur-lg rounded-lg animate-pulse"></div>}
-                <span className="relative text-4xl font-bold text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-yellow-400 bg-clip-text drop-shadow-2xl tracking-wider">
-                  {price > 0 ? `${price} EGP` : "—"}
+              <div className="shrink-0 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border-2 border-black/70 bg-yellow-200 px-2.5 py-1 text-[11px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                  NEW
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border-2 border-black/70 bg-white/90 px-2.5 py-1 text-[11px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                  🔥 HOT
                 </span>
               </div>
             </div>
 
-            {/* Add to Cart */}
-            <button
-              onClick={addToCart}
-              disabled={isAddToCartDisabled}
-              className={`relative w-full group overflow-hidden rounded-2xl bg-yellow-600 p-[2px] transition-all duration-300 hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed ${isAddingToCart ? 'animate-pulse' : ''}`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-yellow-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-spin-slow"></div>
-              <div className="relative bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl px-6 py-4 transition-all duration-300">
-                <div className="relative flex items-center justify-center gap-3 text-white font-bold text-lg">
-                  {isAddingToCart ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Adding...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-5 h-5 transform group-hover:scale-110 transition-transform duration-300" />
-                      <span>{brand && model.trim() ? "Add to Cart" : "Select Configuration"}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </button>
+            {/* hang hole */}
+            <div className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2">
+              <div className="h-7 w-16 rounded-b-2xl border-2 border-black/70 bg-white/10 shadow-[0_6px_0_rgba(0,0,0,0.55)]" />
+              <div className="absolute left-1/2 top-2 -translate-x-1/2 h-3.5 w-3.5 rounded-full border-2 border-black/70 bg-black/30" />
+            </div>
 
+            {/* little "tear" corners */}
+            <div className="pointer-events-none absolute -left-2 top-4 h-4 w-4 rotate-12 rounded-sm border-2 border-black/70 bg-white/10" />
+            <div className="pointer-events-none absolute -right-2 top-4 h-4 w-4 -rotate-12 rounded-sm border-2 border-black/70 bg-white/10" />
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
-        @keyframes spin-slow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 3s linear infinite; }
-      `}</style>
+        {/* ===== IMAGE + comic bubble ===== */}
+        <div className="relative px-4 pt-4">
+          <div
+            className="
+              relative overflow-hidden rounded-[26px]
+              border-2 border-black/70
+              bg-black/20
+              shadow-[0_12px_0_rgba(0,0,0,0.55)]
+            "
+          >
+            <div className="aspect-[4/5] w-full">
+              <img
+                src={thumbImg}
+                alt={name}
+                loading="lazy"
+                decoding="async"
+                fetchpriority="low"
+                className="h-full w-full object-cover"
+              />
+            </div>
+
+            {/* halftone overlay (kept but cheaper opacity) */}
+            <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.9)_1px,transparent_0)] [background-size:18px_18px]" />
+            {/* vignette */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+            {/* comic bubble price */}
+            <div className="absolute top-3 right-3">
+              <div
+                className="
+                  relative
+                  rounded-[22px]
+                  border-2 border-black/70
+                  bg-yellow-200
+                  px-4 py-2
+                  shadow-[0_8px_0_rgba(0,0,0,0.55)]
+                  transform transition-transform duration-200
+                  md:group-hover:-rotate-2
+                "
+              >
+                {/* little spikes */}
+                <span className="pointer-events-none absolute -left-2 top-3 h-3 w-3 rotate-45 border-2 border-black/70 bg-yellow-200" />
+                <span className="pointer-events-none absolute -bottom-2 left-7 h-3 w-3 rotate-45 border-2 border-black/70 bg-yellow-200" />
+
+                <div className="text-[10px] font-black text-black/70 text-center">
+                  💥 السعر
+                </div>
+                <div className="text-lg font-black tracking-wide text-center text-black">
+                  {bubbleText}
+                </div>
+              </div>
+            </div>
+
+            {/* comic footer chips */}
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border-2 border-black/70 bg-white/85 px-2.5 py-1 text-[11px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                ✅ Drop Test
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border-2 border-black/70 bg-white/85 px-2.5 py-1 text-[11px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                📸 Camera Safe
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== CONTROLS ===== */}
+        <div className="relative px-4 pb-5 pt-4">
+          {/* device stickers */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => onDeviceChange("iPhone")}
+              className={[
+                "relative rounded-[22px] border-2 border-black/70 px-4 py-3",
+                "shadow-[0_8px_0_rgba(0,0,0,0.55)]",
+                "transition-transform duration-150 active:translate-y-[2px] active:shadow-[0_6px_0_rgba(0,0,0,0.55)]",
+                "flex items-center justify-center gap-2 text-sm font-black",
+                device === "iPhone"
+                  ? "bg-white/90 text-black -rotate-1"
+                  : "bg-white/10 text-white md:hover:bg-white/15",
+              ].join(" ")}
+            >
+              <FaApple className={device === "iPhone" ? "text-black" : "text-yellow-200"} />
+              iPhone
+              <span className="pointer-events-none absolute -top-2 -right-2 rounded-full border-2 border-black/70 bg-yellow-200 px-2 py-0.5 text-[10px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                POP!
+              </span>
+            </button>
+
+            <button
+              onClick={() => onDeviceChange("Android")}
+              className={[
+                "relative rounded-[22px] border-2 border-black/70 px-4 py-3",
+                "shadow-[0_8px_0_rgba(0,0,0,0.55)]",
+                "transition-transform duration-150 active:translate-y-[2px] active:shadow-[0_6px_0_rgba(0,0,0,0.55)]",
+                "flex items-center justify-center gap-2 text-sm font-black",
+                device === "Android"
+                  ? "bg-white/90 text-black rotate-1"
+                  : "bg-white/10 text-white md:hover:bg-white/15",
+              ].join(" ")}
+            >
+              <FaAndroid className={device === "Android" ? "text-black" : "text-white/80"} />
+              Android
+              <span className="pointer-events-none absolute -top-2 -left-2 rounded-full border-2 border-black/70 bg-white/90 px-2 py-0.5 text-[10px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
+                ZAP!
+              </span>
+            </button>
+          </div>
+
+          {/* iPhone section */}
+          {device === "iPhone" && (
+            <div className="mt-4 space-y-3">
+              <div className="grid grid-cols-1 gap-2">
+                {CASE_TYPES.map((t, idx) => {
+                  const active = caseType === t.key;
+                  const tilt =
+                    idx === 0
+                      ? "-rotate-[1deg]"
+                      : idx === 1
+                      ? "rotate-[1deg]"
+                      : "-rotate-[0.5deg]";
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => {
+                        startTransition(() => {
+                          setCaseType(t.key);
+                          setIphoneModel("");
+                        });
+                      }}
+                      className={[
+                        "rounded-[22px] px-4 py-3 text-sm font-black text-right transition-transform duration-150",
+                        "border-2 border-black/70 shadow-[0_8px_0_rgba(0,0,0,0.55)]",
+                        "active:translate-y-[2px] active:shadow-[0_6px_0_rgba(0,0,0,0.55)]",
+                        active
+                          ? `bg-yellow-200 text-black ${tilt}`
+                          : "bg-white/10 text-white md:hover:bg-white/15",
+                      ].join(" ")}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-white/80 text-xs font-black">موديل الآيفون</label>
+
+                <GlassSelect
+                  value={iphoneModel}
+                  disabled={!caseType}
+                  placeholder={caseType ? "اختار (iPhone 7 → iPhone 17)" : "اختار نوع الكفر الأول"}
+                  searchPlaceholder="ابحث عن موديل..."
+                  icon={<Smartphone className="text-white/70 w-4 h-4" />}
+                  options={IPHONE_MODELS.map((m) => ({
+                    value: m,
+                    label: m,
+                    meta: { price: caseType ? calcIphonePrice(caseType, m) : 0 },
+                  }))}
+                  onChange={(val) => startTransition(() => setIphoneModel(val))}
+                  renderOption={(opt) => (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold">{opt.label}</span>
+                      {caseType ? (
+                        <span className="text-sm font-extrabold text-yellow-200">
+                          {opt.meta.price} EGP
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
+                />
+
+                {iphoneModel && caseType && (
+                  <p className="text-white/80 text-xs font-bold">
+                    السعر الحالي: <span className="text-yellow-200 font-black">{price} EGP</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Android section */}
+          {device === "Android" && (
+            <div className="mt-4 space-y-3">
+              <div className="space-y-1">
+                <label className="text-white/80 text-xs font-black">نوع الموبايل</label>
+
+                <GlassSelect
+                  value={androidBrand}
+                  placeholder="اختار النوع"
+                  searchPlaceholder="ابحث عن النوع..."
+                  options={ANDROID_BRANDS.map((b) => ({ value: b, label: b }))}
+                  onChange={(val) =>
+                    startTransition(() => {
+                      setAndroidBrand(val);
+                      setAndroidModel("");
+                    })
+                  }
+                />
+              </div>
+
+              {androidBrand && (
+                <div className="space-y-1">
+                  <label className="text-white/80 text-xs font-black">موديل الجهاز</label>
+
+                  <input
+                    value={androidModel}
+                    onChange={(e) => startTransition(() => setAndroidModel(e.target.value))}
+                    placeholder={`اكتب موديل ${androidBrand} (${
+                      ANDROID_HINTS[androidBrand] || "مثال: A54 / S23"
+                    })`}
+                    className="
+                      w-full rounded-[22px] border-2 border-black/70 bg-white/10
+                      px-4 py-3.5 text-sm font-black text-white
+                      placeholder:text-white/50
+                      focus:outline-none focus:ring-2 focus:ring-yellow-200/25
+                    "
+                  />
+
+                  <p className="text-white/80 text-xs font-bold">
+                    السعر الحالي:{" "}
+                    <span className="text-yellow-200 font-black">{price ? price : 120} EGP</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Add button - stamp */}
+          <button
+            onClick={addToCart}
+            disabled={!canAdd || isAdding}
+            className={[
+              "mt-5 w-full rounded-[22px] px-4 py-3.5 font-black transition-transform duration-150",
+              "border-2 border-black/70 shadow-[0_10px_0_rgba(0,0,0,0.55)]",
+              "flex items-center justify-center gap-2",
+              "active:translate-y-[2px] active:shadow-[0_8px_0_rgba(0,0,0,0.55)]",
+              canAdd && !isAdding
+                ? "bg-yellow-200 text-black md:hover:brightness-95"
+                : "bg-white/10 text-white/55 cursor-not-allowed",
+            ].join(" ")}
+          >
+            {isAdding ? (
+              <>
+                <span className="h-4 w-4 rounded-full border-2 border-black/60 border-t-transparent animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-5 w-5" />
+                أضف للسلة
+              </>
+            )}
+          </button>
+           <p className="mt-2 text-center text-[11px] font-bold text-white/60">
+              ⚠️ أتأكد من نوع موبايلك للأختلاف بين 4G و5G.
+          </p>
+        </div>
+      </div>
     </div>
   );
-};
+});
 
-export default FuturisticProductCard;
+export default ProductCard;

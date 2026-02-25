@@ -1,47 +1,91 @@
-import React from 'react'
+import React from "react";
+import { Layers, Shield, Printer, Sparkles } from "lucide-react";
 
-const Homecard = () => {
-  const cards = [
+export default function Homecard() {
+  const features = [
     {
-      img: "https://cdn-icons-png.flaticon.com/512/3985/3985848.png", 
-      text: "Printing takes 1 to 1.5 weeks"
+      title: "خامات عالية الجودة",
+      desc: "قيمة مقابل سعر",
+      icon: <Layers size={26} />,
     },
     {
-      img: "https://cdn-icons-png.flaticon.com/512/3231/3231977.png", 
-      text: "Shipping all over Egypt"
+      title: "طباعة ثابتة لا تبهت",
+      desc: "ألوان زاهية تدوم طويلاً",
+      icon: <Printer size={26} />,
     },
     {
-      img: "https://cdn-icons-png.flaticon.com/512/7417/7417971.png", 
-      text: "Best Mobile Cases in Egypt"
-    }
+      title: "حماية قوية للموبايل",
+      desc: "حماية فائقة من الصدمات",
+      icon: <Shield size={26} />,
+    },
+    {
+      title: "تصميمات عصرية",
+      desc: "تشكيلة واسعة تناسب جميع الأذواق",
+      icon: <Sparkles size={26} />,
+    },
   ];
 
   return (
-  <div className='mb-20 px-4'>
-  <div className="flex flex-col sm:flex-row gap-6 justify-center mt-2">
-    {cards.map((card, index) => (
-      <div 
-        key={index} 
-        tabIndex={0} // مهم عشان يكون focusable على الموبايل/كيبورد
-        className="backdrop-blur-md rounded-2xl shadow-lg p-6 flex flex-col items-center gap-4
-          hover:scale-105 hover:shadow-[0_0_25px_rgba(255,255,255,0.5)]
-          focus:scale-105 focus:shadow-[0_0_25px_rgba(255,255,255,0.5)]
-          focus:outline-none
-          transition-transform duration-500 ease-in-out w-9/12 sm:w-[calc(33%-1rem)] mx-auto cursor-pointer">
-        <img 
-          src={card.img} 
-          alt={`Logo ${index+1}`} 
-          className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28"  
-        />
-        <p className="text-white text-center font-semibold text-sm sm:text-base md:text-lg">
-          {card.text}
-        </p>
+    <section
+      dir="rtl"
+      className="bg-gradient-to-b from-[#15001f] via-[#1a0730] to-[#0b0614] py-16"
+    >
+      <div className="max-w-6xl mx-auto px-4">
+
+        {/* Title */}
+        <div className="text-center mb-12">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-white">
+            لماذا تختار <span className="text-yellow-300">Coverly</span>؟
+          </h2>
+        </div>
+
+        {/* Cards */}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((item, index) => (
+            <div
+              key={index}
+              className="
+                group
+                rounded-2xl
+                bg-white/5
+                backdrop-blur-xl
+                border border-white/10
+                p-6
+                text-center
+                shadow-[0_10px_30px_rgba(0,0,0,0.35)]
+                transition
+                hover:-translate-y-1
+                hover:bg-white/10
+              "
+            >
+              {/* Icon Circle */}
+              <div className="
+                mx-auto
+                flex items-center justify-center
+                w-14 h-14
+                rounded-full
+                bg-purple-500/20
+                text-purple-300
+                border border-purple-400/30
+                shadow-inner
+                mb-4
+                transition
+                group-hover:bg-purple-500/30
+              ">
+                {item.icon}
+              </div>
+
+              <h3 className="text-white font-bold text-base mb-1">
+                {item.title}
+              </h3>
+
+              <p className="text-white/70 text-sm">
+                {item.desc}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-    ))}
-  </div>
-</div>
-
-  )
+    </section>
+  );
 }
-
-export default Homecard

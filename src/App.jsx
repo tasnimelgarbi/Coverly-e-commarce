@@ -1,38 +1,30 @@
-import { createBrowserRouter, RouterProvider } from "react-router";
-import Product from "./components/products/Product";
+import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import ScrollToTop from "./ScrollToTop";
 import Cart from "./components/cart/Cart";
 import Footer from "./components/footer/Footer";
 import Home from "./components/home/Home";
+import CategoryProducts from "./components/products/CategoryProducts";
+import CustomPage from "./components/products/CustomPage";
+
+function Layout() {
+  return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+      <Footer />
+    </>
+  );
+}
 
 const router = createBrowserRouter([
   {
-    path: "/",
-    element: (
-      <>
-        <Home />
-        <Footer />
-      </>
-    ),
-  },
-
-    {
-    path: "/products",
-    element: (
-      <>
-        <Product />
-        <Footer />
-      </>
-    ),
-  },
-  
-  {
-    path: "/cart",
-    element: (
-      <>
-        <Cart />
-        <Footer />
-      </>
-    ),
+    element: <Layout />,
+    children: [
+      { path: "/", element: <Home /> },
+      { path: "/category/:slug", element: <CategoryProducts /> },
+      { path: "/custom", element: <CustomPage /> },
+      { path: "/cart", element: <Cart /> },
+    ],
   },
 ]);
 

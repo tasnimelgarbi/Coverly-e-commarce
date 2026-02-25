@@ -5,10 +5,10 @@ import { FiMenu, FiX, FiShoppingCart } from "react-icons/fi";
 
 const Navbar = ({ mobile }) => {
   const navbar = [
-    { title: "Home", link: "#home" },
-    { title: "Products", link: "/products" },
-    { title: "Feedbacks", link: "#feedbacks" },
-    { title: "Contact Us", link: "#footer" },
+    { title: "الرئيسية", link: "#home" },
+    { title: "المنتجات", link: "#categories" },
+    { title: "آراء العملاء", link: "#feedbacks" },
+    { title: "اتصل بنا", link: "#footer" },
   ];
 
   return (
@@ -69,7 +69,7 @@ const Header = () => {
 
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xs shadow-lg transition-all">
+    <header className=" fixed top-0 left-0 w-full z-50 backdrop-blur-xs shadow-lg transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5 gap-10">
 
         {/* Logo */}
@@ -81,7 +81,7 @@ const Header = () => {
         </div>
 
         {/* Navbar on large screens */}
-        {location.pathname !== "/cart" && location.pathname !== "/products" && (
+        {location.pathname !== "/cart" && (
           <div className=" hidden lg:flex flex-1 justify-center">
             <Navbar />
           </div>
@@ -110,8 +110,8 @@ const Header = () => {
             </Link>
           ) : (
             // Products button shown on /cart page
-            <Link to="/products" className="bg-yellow-300 text-black font-bold py-2 px-6 rounded-full hover:scale-105 transition-transform">
-              Products
+            <Link to="/#categories" className="bg-yellow-300 text-black font-bold py-2 px-6 rounded-full hover:scale-105 transition-transform">
+              المنتجات
             </Link>
           )}
         </div>
