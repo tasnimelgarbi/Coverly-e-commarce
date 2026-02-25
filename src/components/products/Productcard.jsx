@@ -116,7 +116,7 @@ function toThumb(url) {
   }
 }
 
-/* ================= Glass Select (Portal Fix) ================= */
+/* ================= Glass Select (Portal Fix + Mobile Scroll Fix) ================= */
 const GlassSelect = memo(function GlassSelect({
   value,
   onChange,
@@ -130,6 +130,9 @@ const GlassSelect = memo(function GlassSelect({
 }) {
   const wrapRef = useRef(null);
   const btnRef = useRef(null);
+
+  // ✅ NEW: dropdown ref (because dropdown is in portal => not inside wrapRef)
+  const dropdownRef = useRef(null);
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -173,24 +176,31 @@ const GlassSelect = memo(function GlassSelect({
     };
   }, [open, updatePos]);
 
+  // ✅ FIX: close handler must consider portal dropdown too (wrapRef won't contain it)
+  // ✅ FIX: use pointerdown capturing instead of touchstart passive
   useEffect(() => {
+    if (!open) return;
+
     const close = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const t = e.target;
+      const insideWrap = wrapRef.current?.contains(t);
+      const insideDrop = dropdownRef.current?.contains(t);
+
+      if (!insideWrap && !insideDrop) {
+        setOpen(false);
+        setQ("");
+      }
     };
 
-    document.addEventListener("mousedown", close);
-    document.addEventListener("touchstart", close, { passive: true });
-
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("touchstart", close);
-    };
-  }, []);
+    document.addEventListener("pointerdown", close, true);
+    return () => document.removeEventListener("pointerdown", close, true);
+  }, [open]);
 
   const dropdown = (
     <AnimatePresence>
       {open && !disabled && (
         <motion.div
+          ref={dropdownRef} // ✅ NEW
           initial={{ opacity: 0, y: -8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -203,6 +213,8 @@ const GlassSelect = memo(function GlassSelect({
             bg-black/70 backdrop-blur-2xl
             shadow-2xl
           "
+          // ✅ prevent bubbling from dropdown root (extra safe on mobile)
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="p-3 border-b border-white/10">
             <input
@@ -217,10 +229,17 @@ const GlassSelect = memo(function GlassSelect({
                 outline-none
                 focus:ring-2 focus:ring-yellow-200/25
               "
+              onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
 
-          <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+          {/* ✅ FIX: proper mobile scroll + don't close when dragging */}
+          <div
+            className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
             {filtered.length === 0 ? (
               <div className="px-4 py-3 text-sm font-bold text-white/60">
                 لا توجد نتائج
@@ -275,7 +294,9 @@ const GlassSelect = memo(function GlassSelect({
         ].join(" ")}
       >
         {icon ? (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2">
+            {icon}
+          </span>
         ) : null}
 
         <span className={selected ? "text-white" : "text-white/55"}>
@@ -288,7 +309,9 @@ const GlassSelect = memo(function GlassSelect({
       </button>
 
       {/* ✅ Portal to body => no clipping by card/container */}
-      {typeof document !== "undefined" ? createPortal(dropdown, document.body) : null}
+      {typeof document !== "undefined"
+        ? createPortal(dropdown, document.body)
+        : null}
     </div>
   );
 });
@@ -323,7 +346,8 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
 
   const canAdd = useMemo(() => {
     if (device === "iPhone") return !!caseType && !!iphoneModel && price > 0;
-    if (device === "Android") return !!androidBrand && !!androidModel.trim() && price > 0;
+    if (device === "Android")
+      return !!androidBrand && !!androidModel.trim() && price > 0;
     return false;
   }, [device, caseType, iphoneModel, androidBrand, androidModel, price]);
 
@@ -336,25 +360,25 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
     setAndroidModel("");
   }, []);
 
- const onDeviceChange = useCallback(
-  (next) => {
-    startTransition(() => {
-      // ✅ لو نفس الجهاز متفتح.. اقفله
-      if (device === next) {
-        resetAll(); // بيرجع كل حاجة فاضية + device=""
-        return;
-      }
+  const onDeviceChange = useCallback(
+    (next) => {
+      startTransition(() => {
+        // ✅ لو نفس الجهاز متفتح.. اقفله
+        if (device === next) {
+          resetAll(); // بيرجع كل حاجة فاضية + device=""
+          return;
+        }
 
-      // ✅ غير الجهاز وافضي اختيارات الجهاز التاني
-      setDevice(next);
-      setCaseType("");
-      setIphoneModel("");
-      setAndroidBrand("");
-      setAndroidModel("");
-    });
-  },
-  [device, resetAll, startTransition]
-);
+        // ✅ غير الجهاز وافضي اختيارات الجهاز التاني
+        setDevice(next);
+        setCaseType("");
+        setIphoneModel("");
+        setAndroidBrand("");
+        setAndroidModel("");
+      });
+    },
+    [device, resetAll, startTransition]
+  );
 
   const addToCart = useCallback(async () => {
     if (!canAdd) return;
@@ -387,13 +411,26 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
       const cart = JSON.parse(localStorage.getItem("cart") || "[]");
       cart.push(newItem);
       localStorage.setItem("cart", JSON.stringify(cart));
-      window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cart.length }));
+      window.dispatchEvent(
+        new CustomEvent("cartUpdated", { detail: cart.length })
+      );
     });
 
     await new Promise((r) => setTimeout(r, 350));
     setIsAdding(false);
     resetAll();
-  }, [canAdd, caseType, device, iphoneModel, androidBrand, androidModel, price, img, id, resetAll]);
+  }, [
+    canAdd,
+    caseType,
+    device,
+    iphoneModel,
+    androidBrand,
+    androidModel,
+    price,
+    img,
+    id,
+    resetAll,
+  ]);
 
   const priceText = price ? `${price} EGP` : "—";
   const bubbleText = price ? priceText : "اختار موديل";
@@ -536,7 +573,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
                   : "bg-white/10 text-white md:hover:bg-white/15",
               ].join(" ")}
             >
-              <FaApple className={device === "iPhone" ? "text-black" : "text-yellow-200"} />
+              <FaApple
+                className={device === "iPhone" ? "text-black" : "text-yellow-200"}
+              />
               iPhone
               <span className="pointer-events-none absolute -top-2 -right-2 rounded-full border-2 border-black/70 bg-yellow-200 px-2 py-0.5 text-[10px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
                 POP!
@@ -555,7 +594,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
                   : "bg-white/10 text-white md:hover:bg-white/15",
               ].join(" ")}
             >
-              <FaAndroid className={device === "Android" ? "text-black" : "text-white/80"} />
+              <FaAndroid
+                className={device === "Android" ? "text-black" : "text-white/80"}
+              />
               Android
               <span className="pointer-events-none absolute -top-2 -left-2 rounded-full border-2 border-black/70 bg-white/90 px-2 py-0.5 text-[10px] font-black text-black shadow-[0_5px_0_rgba(0,0,0,0.55)]">
                 ZAP!
@@ -600,18 +641,26 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
               </div>
 
               <div className="space-y-1">
-                <label className="text-white/80 text-xs font-black">موديل الآيفون</label>
+                <label className="text-white/80 text-xs font-black">
+                  موديل الآيفون
+                </label>
 
                 <GlassSelect
                   value={iphoneModel}
                   disabled={!caseType}
-                  placeholder={caseType ? "اختار (iPhone 7 → iPhone 17)" : "اختار نوع الكفر الأول"}
+                  placeholder={
+                    caseType
+                      ? "اختار (iPhone 7 → iPhone 17)"
+                      : "اختار نوع الكفر الأول"
+                  }
                   searchPlaceholder="ابحث عن موديل..."
                   icon={<Smartphone className="text-white/70 w-4 h-4" />}
                   options={IPHONE_MODELS.map((m) => ({
                     value: m,
                     label: m,
-                    meta: { price: caseType ? calcIphonePrice(caseType, m) : 0 },
+                    meta: {
+                      price: caseType ? calcIphonePrice(caseType, m) : 0,
+                    },
                   }))}
                   onChange={(val) => startTransition(() => setIphoneModel(val))}
                   renderOption={(opt) => (
@@ -628,7 +677,10 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
 
                 {iphoneModel && caseType && (
                   <p className="text-white/80 text-xs font-bold">
-                    السعر الحالي: <span className="text-yellow-200 font-black">{price} EGP</span>
+                    السعر الحالي:{" "}
+                    <span className="text-yellow-200 font-black">
+                      {price} EGP
+                    </span>
                   </p>
                 )}
               </div>
@@ -639,7 +691,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
           {device === "Android" && (
             <div className="mt-4 space-y-3">
               <div className="space-y-1">
-                <label className="text-white/80 text-xs font-black">نوع الموبايل</label>
+                <label className="text-white/80 text-xs font-black">
+                  نوع الموبايل
+                </label>
 
                 <GlassSelect
                   value={androidBrand}
@@ -657,11 +711,15 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
 
               {androidBrand && (
                 <div className="space-y-1">
-                  <label className="text-white/80 text-xs font-black">موديل الجهاز</label>
+                  <label className="text-white/80 text-xs font-black">
+                    موديل الجهاز
+                  </label>
 
                   <input
                     value={androidModel}
-                    onChange={(e) => startTransition(() => setAndroidModel(e.target.value))}
+                    onChange={(e) =>
+                      startTransition(() => setAndroidModel(e.target.value))
+                    }
                     placeholder={`اكتب موديل ${androidBrand} (${
                       ANDROID_HINTS[androidBrand] || "مثال: A54 / S23"
                     })`}
@@ -675,7 +733,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
 
                   <p className="text-white/80 text-xs font-bold">
                     السعر الحالي:{" "}
-                    <span className="text-yellow-200 font-black">{price ? price : 120} EGP</span>
+                    <span className="text-yellow-200 font-black">
+                      {price ? price : 120} EGP
+                    </span>
                   </p>
                 </div>
               )}
@@ -708,8 +768,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
               </>
             )}
           </button>
-           <p className="mt-2 text-center text-[11px] font-bold text-white/60">
-              ⚠️ أتأكد من نوع موبايلك للأختلاف بين 4G و5G.
+
+          <p className="mt-2 text-center text-[11px] font-bold text-white/60">
+            ⚠️ أتأكد من نوع موبايلك للأختلاف بين 4G و5G.
           </p>
         </div>
       </div>

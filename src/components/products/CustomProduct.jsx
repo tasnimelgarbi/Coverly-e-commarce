@@ -120,7 +120,7 @@ async function compressImage(dataUrl, maxW = 900, quality = 0.75) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-/* ================= Glass Select (Portal Fix) ================= */
+/* ================= Glass Select (Portal Fix + Mobile Scroll Fix) ================= */
 const GlassSelect = memo(function GlassSelect({
   value,
   onChange,
@@ -134,6 +134,9 @@ const GlassSelect = memo(function GlassSelect({
 }) {
   const wrapRef = useRef(null);
   const btnRef = useRef(null);
+
+  // ✅ NEW: لأن الدروب داون في Portal مش جوه wrapRef
+  const dropdownRef = useRef(null);
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -168,6 +171,7 @@ const GlassSelect = memo(function GlassSelect({
     const onScroll = () => updatePos();
     const onResize = () => updatePos();
 
+    // capture scroll inside any container too
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onResize);
 
@@ -177,24 +181,31 @@ const GlassSelect = memo(function GlassSelect({
     };
   }, [open, updatePos]);
 
+  // ✅ FIX: close must consider portal dropdown too + use pointerdown capturing
   useEffect(() => {
+    if (!open) return;
+
     const close = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const t = e.target;
+
+      const insideWrap = wrapRef.current?.contains(t);
+      const insideDrop = dropdownRef.current?.contains(t);
+
+      if (!insideWrap && !insideDrop) {
+        setOpen(false);
+        setQ("");
+      }
     };
 
-    document.addEventListener("mousedown", close);
-    document.addEventListener("touchstart", close, { passive: true });
-
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("touchstart", close);
-    };
-  }, []);
+    document.addEventListener("pointerdown", close, true);
+    return () => document.removeEventListener("pointerdown", close, true);
+  }, [open]);
 
   const dropdown = (
     <AnimatePresence>
       {open && !disabled && (
         <motion.div
+          ref={dropdownRef}
           initial={{ opacity: 0, y: -8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -207,6 +218,7 @@ const GlassSelect = memo(function GlassSelect({
             bg-black/70 backdrop-blur-2xl
             shadow-2xl
           "
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="p-3 border-b border-white/10">
             <input
@@ -221,10 +233,17 @@ const GlassSelect = memo(function GlassSelect({
                 outline-none
                 focus:ring-2 focus:ring-yellow-200/25
               "
+              onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
 
-          <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+          {/* ✅ FIX: سكرول موبايل حقيقي + مايقفلش مع السحب */}
+          <div
+            className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
             {filtered.length === 0 ? (
               <div className="px-4 py-3 text-sm font-bold text-white/60">
                 لا توجد نتائج
@@ -293,9 +312,8 @@ const GlassSelect = memo(function GlassSelect({
         </span>
       </button>
 
-      {typeof document !== "undefined"
-        ? createPortal(dropdown, document.body)
-        : null}
+      {/* ✅ Portal to body => no clipping by card/container */}
+      {typeof document !== "undefined" ? createPortal(dropdown, document.body) : null}
     </div>
   );
 });
@@ -365,6 +383,7 @@ const CustomProductCard = memo(function CustomProductCard({
     resetDeviceOnly();
     setFile(null);
     setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
   }, [resetDeviceOnly]);
 
   const onDeviceChange = useCallback(
@@ -403,66 +422,64 @@ const CustomProductCard = memo(function CustomProductCard({
   }, []);
 
   /* ================= UPDATED: addToCart ================= */
-   const addToCart = useCallback(async () => {
-        if (!canAdd) return;
+  const addToCart = useCallback(async () => {
+    if (!canAdd) return;
 
-        setIsAdding(true);
+    setIsAdding(true);
 
-        const pickedCaseLabel = CASE_TYPES.find((x) => x.key === caseType)?.label;
+    const pickedCaseLabel = CASE_TYPES.find((x) => x.key === caseType)?.label;
 
-        const title =
-          device === "iPhone"
-            ? `${iphoneModel} • ${pickedCaseLabel} • Custom`
-            : `${androidBrand} • ${androidModel.trim()} • Custom`;
+    const title =
+      device === "iPhone"
+        ? `${iphoneModel} • ${pickedCaseLabel} • Custom`
+        : `${androidBrand} • ${androidModel.trim()} • Custom`;
 
-        try {
-          // ✅ (لو عندك compressImage) ضغط الصورة قبل التخزين لتفادي quota
-          const safePreview = await compressImage(preview, 900, 0.75);
+    try {
+      const safePreview = await compressImage(preview, 900, 0.75);
 
-          const newItem = {
-            id: Date.now(),
-            product_id: null,
-            title,
-            name: title,
-            device,
-            caseType: device === "iPhone" ? caseType : null,
-            iphoneModel: device === "iPhone" ? iphoneModel : null,
-            androidBrand: device === "Android" ? androidBrand : null,
-            androidModel: device === "Android" ? androidModel.trim() : null,
-            price,
-            image: safePreview,
-            quantity: 1,
-            customImage: true,
-          };
-
-          const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-          const nextCart = Array.isArray(cart) ? [...cart, newItem] : [newItem];
-
-          localStorage.setItem("cart", JSON.stringify(nextCart));
-
-          // ✅ أهم سطر: ابعت "رقم" ثابت زي ProductCard (مش Array)
-          const count = nextCart.reduce((sum, it) => sum + Number(it.quantity || 1), 0);
-          window.dispatchEvent(new CustomEvent("cartUpdated", { detail: count }));
-
-          await new Promise((r) => setTimeout(r, 250));
-          resetAll();
-        } catch (e) {
-          console.error("Failed to add custom item to cart:", e);
-          alert("حصلت مشكلة في إضافة المنتج للسلة (ممكن الصورة حجمها كبير). جرّب صورة أصغر.");
-        } finally {
-          setIsAdding(false);
-        }
-      }, [
-        canAdd,
+      const newItem = {
+        id: Date.now(),
+        product_id: null,
+        title,
+        name: title,
         device,
-        caseType,
-        iphoneModel,
-        androidBrand,
-        androidModel,
+        caseType: device === "iPhone" ? caseType : null,
+        iphoneModel: device === "iPhone" ? iphoneModel : null,
+        androidBrand: device === "Android" ? androidBrand : null,
+        androidModel: device === "Android" ? androidModel.trim() : null,
         price,
-        preview,
-        resetAll,
-      ]);
+        image: safePreview,
+        quantity: 1,
+        customImage: true,
+      };
+
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const nextCart = Array.isArray(cart) ? [...cart, newItem] : [newItem];
+
+      localStorage.setItem("cart", JSON.stringify(nextCart));
+
+      const count = nextCart.reduce((sum, it) => sum + Number(it.quantity || 1), 0);
+      window.dispatchEvent(new CustomEvent("cartUpdated", { detail: count }));
+
+      await new Promise((r) => setTimeout(r, 250));
+      resetAll();
+    } catch (e) {
+      console.error("Failed to add custom item to cart:", e);
+      alert("حصلت مشكلة في إضافة المنتج للسلة (ممكن الصورة حجمها كبير). جرّب صورة أصغر.");
+    } finally {
+      setIsAdding(false);
+    }
+  }, [
+    canAdd,
+    device,
+    caseType,
+    iphoneModel,
+    androidBrand,
+    androidModel,
+    price,
+    preview,
+    resetAll,
+  ]);
 
   const bubbleText = price ? `${price} EGP` : "—";
 
