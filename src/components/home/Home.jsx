@@ -96,6 +96,16 @@ const CATEGORIES = [
     slug: "sea",
     img: "https://i.ibb.co/5gnc8X66/Chat-GPT-Image-Feb-22-2026-03-45-13-AM.png",
   },
+   {
+    label: "متنوع",
+    slug: "creative",
+    img: "https://i.ibb.co/1Y6HVGLL/Chat-GPT-Image-Feb-25-2026-06-24-06-AM.png",
+  },
+   {
+    label: "تخصصات",
+    slug: "specialized",
+    img: "https://i.ibb.co/zHNcHYHV/Chat-GPT-Image-Feb-25-2026-06-20-20-AM.png",
+  },
 ];
 
 export default function Home() {

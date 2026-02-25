@@ -393,29 +393,31 @@ export default function Order({
     };
   }, []);
 
-  const [discountCodes, setDiscountCodes] = useState(
-    Array.from({ length: 20 }, (_, i) => ({
-      code: `MCOVT${i + 1}`,
-      discount: Math.floor(Math.random() * (10 - 3 + 1)) + 3,
-    }))
-  );
+  // ✅ بدل discountCodes الستاتيك — هنكتفي بالكود المطبق فقط
   const [appliedDiscount, setAppliedDiscount] = useState(null);
 
-  const finalTotal = useMemo(() => {
-    const t = Number(total || 0);
-    if (!appliedDiscount) return t;
-    const v = t - (t * Number(appliedDiscount.discount)) / 100;
-    return Number(v.toFixed(2));
-  }, [total, appliedDiscount]);
+  // إجمالي المنتجات قبل الخصم
+  const finalTotal = useMemo(() => Number(total || 0), [total]);
 
   const shippingFee = useMemo(() => {
     const found = GOVERNORATES.find((g) => g.value === form.governorate);
     return found ? Number(found.fee || 0) : 0;
   }, [form.governorate]);
 
+  // ✅ الخطوة 3: حساب الخصم والإجمالي بعد الخصم ثم الشحن
+  const discountAmount = useMemo(() => {
+    if (!appliedDiscount) return 0;
+    const pct = Number(appliedDiscount.discount || 0);
+    return Math.round((finalTotal * pct) / 100);
+  }, [appliedDiscount, finalTotal]);
+
+  const totalAfterDiscount = useMemo(() => {
+    return Math.max(0, finalTotal - discountAmount);
+  }, [finalTotal, discountAmount]);
+
   const totalWithShipping = useMemo(() => {
-    return Number((Number(finalTotal || 0) + Number(shippingFee || 0)).toFixed(2));
-  }, [finalTotal, shippingFee]);
+    return totalAfterDiscount + (form.governorate ? shippingFee : 0);
+  }, [totalAfterDiscount, shippingFee, form.governorate]);
 
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -496,7 +498,10 @@ export default function Order({
         governorate: form.governorate,
         shipping_fee: shippingFee,
         payment_image: publicUrl,
+
+        // ✅ الإجمالي النهائي بعد الخصم + الشحن
         total_amount: totalWithShipping,
+
         products: cart.map((item) => ({
           name: item.name,
           type: item.type || "",
@@ -774,14 +779,14 @@ export default function Order({
               )}
             </div>
 
+            {/* ✅ صندوق كود الخصم (مربوط بالـ API من داخل DiscountCodeBox) */}
             <DiscountCodeBox
-              discountCodes={discountCodes}
-              setDiscountCodes={setDiscountCodes}
               appliedDiscount={appliedDiscount}
               setAppliedDiscount={setAppliedDiscount}
               onToast={showToast}
             />
 
+            {/* ✅ الإجماليات بعد التعديل */}
             <div className="rounded-2xl border border-white/15 bg-white/10 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-extrabold text-white/85">إجمالي المنتجات</span>
@@ -794,6 +799,18 @@ export default function Order({
                   {form.governorate ? formatEGP(shippingFee) : "—"}
                 </span>
               </div>
+
+              {/* ✅ الخطوة 4: سطر الخصم */}
+              {appliedDiscount ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-extrabold text-white/85">
+                    الخصم ({appliedDiscount.discount}%)
+                  </span>
+                  <span className="text-lg font-extrabold text-green-300">
+                    -{formatEGP(discountAmount)}
+                  </span>
+                </div>
+              ) : null}
 
               <div className="h-px w-full bg-white/10" />
 

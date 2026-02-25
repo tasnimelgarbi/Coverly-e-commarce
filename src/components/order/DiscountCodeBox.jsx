@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Percent } from "lucide-react";
+ import { validatePromoCode } from "../../services/discountsApi"; // عدل المسار
 
 export default function DiscountCodeBox({
   discountCodes,
-  setDiscountCodes,
   appliedDiscount,
   setAppliedDiscount,
   onToast,
@@ -12,38 +12,62 @@ export default function DiscountCodeBox({
 
   const remaining = useMemo(() => discountCodes?.length || 0, [discountCodes]);
 
-  const apply = () => {
-    if (appliedDiscount) {
-      onToast?.({
-        type: "warning",
-        title: "تنبيه",
-        message: "مسموح بكود خصم واحد فقط.",
-      });
+
+const apply = async () => {
+  if (appliedDiscount) {
+    onToast?.({
+      type: "warning",
+      title: "تنبيه",
+      message: "مسموح بكود خصم واحد فقط.",
+    });
+    return;
+  }
+
+  const code = discountInput.trim().toUpperCase();
+  if (!code) return;
+
+  try {
+    const res = await validatePromoCode(code);
+
+    if (!res.ok) {
+      const msg =
+        res.reason === "NOT_FOUND"
+          ? "الكود غير صحيح."
+          : res.reason === "INACTIVE"
+          ? "الكود غير مفعل."
+          : res.reason === "EXPIRED"
+          ? "الكود منتهي."
+          : res.reason === "LIMIT_REACHED"
+          ? "تم استخدام الكود بالكامل."
+          : "تعذر تطبيق الكود.";
+
+      onToast?.({ type: "error", title: "الكود غير صالح", message: msg });
       return;
     }
 
-    const code = discountInput.trim();
-    const found = discountCodes.find((d) => d.code === code);
+    const promo = res.data;
 
-    if (!found) {
-      onToast?.({
-        type: "error",
-        title: "الكود غير صحيح",
-        message: "تأكد من الكود أو أنه تم استخدامه من قبل.",
-      });
-      return;
-    }
+    setAppliedDiscount({
+      id: promo.id,
+      code: promo.code,
+      discount: promo.discount_percent,
+    });
 
-    setAppliedDiscount(found);
-    setDiscountCodes((prev) => prev.filter((d) => d.code !== found.code));
     setDiscountInput("");
 
     onToast?.({
       type: "success",
       title: "تم تطبيق الخصم",
-      message: `تم خصم ${found.discount}% بنجاح.`,
+      message: `تم خصم ${promo.discount_percent}% بنجاح.`,
     });
-  };
+  } catch (e) {
+    onToast?.({
+      type: "error",
+      title: "خطأ",
+      message: e?.message || "حصل خطأ أثناء التحقق من الكود",
+    });
+  }
+};
 
   const clear = () => {
     setAppliedDiscount(null);
