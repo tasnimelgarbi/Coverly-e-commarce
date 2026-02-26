@@ -85,7 +85,9 @@ export default function ReceiptCard({
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-white/70">العنوان</span>
-              <span className="text-left leading-6">{order?.customer_address || "-"}</span>
+              <span className="text-left leading-6">
+                {order?.customer_address || "-"}
+              </span>
             </div>
           </div>
         </div>
@@ -103,10 +105,24 @@ export default function ReceiptCard({
                     <div className="truncate text-sm font-extrabold">
                       {idx + 1}. {it.name}
                     </div>
+
                     <div className="mt-1 text-xs font-semibold text-white/60">
                       {it.quantity} × {formatEGP(it.price)}
                     </div>
+
+                    {/* ✅ NEW: Notes under item (if exists) */}
+                    {it.notes ? (
+                      <div className="mt-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                        <div className="text-[11px] font-extrabold text-white/70 mb-1">
+                          ملاحظات:
+                        </div>
+                        <div className="text-[11px] font-semibold text-white/65 leading-6 break-words">
+                          {it.notes}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
+
                   <div className="shrink-0 text-sm font-extrabold text-yellow-200">
                     {formatEGP(Number(it.price) * Number(it.quantity || 1))}
                   </div>
@@ -119,7 +135,9 @@ export default function ReceiptCard({
         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-extrabold">الإجمالي</div>
-            <div className="text-2xl font-extrabold">{formatEGP(order?.total_amount)}</div>
+            <div className="text-2xl font-extrabold">
+              {formatEGP(order?.total_amount)}
+            </div>
           </div>
           <div className="mt-2 text-xs font-semibold text-white/70">{note}</div>
         </div>

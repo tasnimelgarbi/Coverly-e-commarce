@@ -18,7 +18,11 @@ export default function CartItem({ item, onIncrease, onDecrease, onRemove }) {
         border border-white/15 bg-white/10 backdrop-blur-xl
         shadow-[0_18px_55px_-35px_rgba(0,0,0,0.85)]
         transition-all duration-300
-        ${isRemoving ? "scale-[0.98] opacity-60" : "hover:scale-[1.01] hover:border-white/25"}
+        ${
+          isRemoving
+            ? "scale-[0.98] opacity-60"
+            : "hover:scale-[1.01] hover:border-white/25"
+        }
       `}
     >
       {/* Glass glow + “case” vibe */}
@@ -69,6 +73,18 @@ export default function CartItem({ item, onIncrease, onDecrease, onRemove }) {
                 {item.brand} {item.model}
               </p>
             )}
+
+            {/* ✅ NEW: notes */}
+            {item.notes ? (
+              <div className="mt-2 rounded-2xl border border-white/15 bg-white/5 backdrop-blur px-3 py-2">
+                <p className="text-[12px] font-extrabold text-white/75 mb-1">
+                  ملاحظات:
+                </p>
+                <p className="text-[12px] font-semibold text-white/70 leading-relaxed">
+                  {item.notes}
+                </p>
+              </div>
+            ) : null}
 
             <div className="mt-2 flex items-center justify-end gap-2">
               <span className="text-xs font-bold text-white/60">جنيه</span>
@@ -132,10 +148,14 @@ export default function CartItem({ item, onIncrease, onDecrease, onRemove }) {
         </div>
 
         {/* Subtotal */}
-        <div className="w-full sm:w-auto min-w-[170px] rounded-2xl p-4 text-right
+        <div
+          className="w-full sm:w-auto min-w-[170px] rounded-2xl p-4 text-right
           border border-white/15 bg-white/10 backdrop-blur
-        ">
-          <p className="text-xs font-bold text-white/60 mb-1">الإجمالي الفرعي:</p>
+        "
+        >
+          <p className="text-xs font-bold text-white/60 mb-1">
+            الإجمالي الفرعي:
+          </p>
 
           <div className="flex items-center justify-center gap-2">
             <span className="text-xs font-bold text-white/60">جنيه</span>
@@ -143,10 +163,6 @@ export default function CartItem({ item, onIncrease, onDecrease, onRemove }) {
               {subtotal}
             </span>
           </div>
-
-          {/* tiny hint bar like “case protection level” */}
-         
-
         </div>
       </div>
     </div>

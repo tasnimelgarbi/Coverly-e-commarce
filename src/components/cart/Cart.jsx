@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import CartItem from "./CartItem";
 import Order from "./Order";
 import Header from "../header/Header";
@@ -13,74 +13,97 @@ export default function Cart() {
     }
   });
 
-  // ✅ NEW: Sync cart from localStorage on events
-  const syncCart = useCallback(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("cart") || "[]");
-      setCart(Array.isArray(saved) ? saved : []);
-    } catch {
-      setCart([]);
-    }
+  // ✅ helper: احسب عدد المنتجات في السلة (بـ الكميات)
+  const cartCount = useCallback((arr) => {
+    return (arr || []).reduce((sum, it) => sum + Number(it.quantity || 1), 0);
   }, []);
 
-  useEffect(() => {
-    // أول مرة (لو فتحت صفحة السلة)
-    syncCart();
-
-    const onCartUpdated = () => syncCart();
-    const onStorage = () => syncCart();
-
-    window.addEventListener("cartUpdated", onCartUpdated);
-    window.addEventListener("storage", onStorage);
-
-    return () => {
-      window.removeEventListener("cartUpdated", onCartUpdated);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [syncCart]);
-
-  // ✅ زي ما كان: أي تغيير في cart جوه صفحة السلة يتكتب
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
-
-  const increase = (id) =>
-    setCart((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, quantity: it.quantity + 1 } : it))
-    );
-
-  const decrease = (id) =>
-    setCart((prev) =>
-      prev
-        .map((it) =>
-          it.id === id ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it
-        )
-        .filter(Boolean)
-    );
-
-  const removeItem = (id) => setCart((prev) => prev.filter((it) => it.id !== id));
-
-  const total = cart.reduce(
-    (acc, it) => acc + Number(it.price) * Number(it.quantity),
-    0
+  // ✅ helper: update واحد يضمن:
+  // 1) setCart
+  // 2) localStorage
+  // 3) dispatch event للهيدر/البادج
+  const updateCart = useCallback(
+    (next) => {
+      setCart(next);
+      localStorage.setItem("cart", JSON.stringify(next));
+      window.dispatchEvent(
+        new CustomEvent("cartUpdated", { detail: cartCount(next) })
+      );
+    },
+    [cartCount]
   );
 
-  const handleOrderPlaced = (order) => {
-    setCart([]);
-    localStorage.setItem("cart", JSON.stringify([]));
+  // ✅ لو السلة اتغيرت من تاب تاني/صفحة تانية
+  useEffect(() => {
+    const onStorage = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("cart") || "[]");
+        if (Array.isArray(saved)) setCart(saved);
+      } catch {}
+    };
 
-    // ✅ optional: حدث تحديث (لو في هيدر/بادج بيعرض عدد السلة)
-    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: [] }));
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
-    console.log("order saved:", order);
-  };
+  // ✅ زيادة: يحافظ على notes وكل بيانات المنتج
+  const increase = useCallback(
+    (id) => {
+      const next = cart.map((it) =>
+        it.id === id
+          ? { ...it, quantity: Number(it.quantity || 1) + 1 }
+          : it
+      );
+      updateCart(next);
+    },
+    [cart, updateCart]
+  );
+
+  // ✅ تقليل
+  const decrease = useCallback(
+    (id) => {
+      const next = cart.map((it) =>
+        it.id === id
+          ? { ...it, quantity: Math.max(1, Number(it.quantity || 1) - 1) }
+          : it
+      );
+      updateCart(next);
+    },
+    [cart, updateCart]
+  );
+
+  // ✅ حذف
+  const removeItem = useCallback(
+    (id) => {
+      const next = cart.filter((it) => it.id !== id);
+      updateCart(next);
+    },
+    [cart, updateCart]
+  );
+
+  // ✅ إجمالي
+  const total = useMemo(() => {
+    return cart.reduce(
+      (acc, it) => acc + Number(it.price || 0) * Number(it.quantity || 1),
+      0
+    );
+  }, [cart]);
+
+  // ✅ بعد تسجيل الطلب: فضي السلة
+  const handleOrderPlaced = useCallback(
+    (order) => {
+      updateCart([]);
+      console.log("order saved:", order);
+    },
+    [updateCart]
+  );
 
   return (
     <>
       <Header />
       <div
         dir="rtl"
-        className="pt-20 min-h-screen  bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 p-4 sm:p-6 relative"
+        className="pt-20 min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 p-4 sm:p-6 relative"
       >
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>

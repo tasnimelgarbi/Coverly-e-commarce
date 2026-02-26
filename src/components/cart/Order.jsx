@@ -43,7 +43,11 @@ const waitImg = (img) =>
 async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
   try {
     if (!order) {
-      showToast?.({ type: "error", title: "خطأ", message: "لا يوجد بيانات للريسيت." });
+      showToast?.({
+        type: "error",
+        title: "خطأ",
+        message: "لا يوجد بيانات للريسيت.",
+      });
       return;
     }
 
@@ -108,7 +112,9 @@ async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
     meta.style.textAlign = "left";
 
     const invoiceId =
-      String(order?.created_at || Date.now()).replace(/\D/g, "").slice(-6) || "000000";
+      String(order?.created_at || Date.now())
+        .replace(/\D/g, "")
+        .slice(-6) || "000000";
 
     const invoice = document.createElement("div");
     invoice.textContent = `رقم #${invoiceId}`;
@@ -121,7 +127,9 @@ async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
     invoice.style.display = "inline-block";
 
     const dateLine = document.createElement("div");
-    dateLine.textContent = new Date(order?.created_at || Date.now()).toLocaleString("ar-EG");
+    dateLine.textContent = new Date(
+      order?.created_at || Date.now()
+    ).toLocaleString("ar-EG");
     dateLine.style.marginTop = "6px";
     dateLine.style.fontSize = "10.5px";
     dateLine.style.fontWeight = "700";
@@ -165,10 +173,18 @@ async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
     const customer = card(
       "بيانات العميل",
       `
-        <div><span style="opacity:.7; font-weight:700;">الاسم:</span> ${order.customer_name || "-"}</div>
-        <div><span style="opacity:.7; font-weight:700;">الموبايل:</span> ${order.customer_phone || "-"}</div>
-        <div><span style="opacity:.7; font-weight:700;">المحافظة:</span> ${order.governorate || "-"}</div>
-        <div><span style="opacity:.7; font-weight:700;">العنوان:</span> ${order.customer_address || "-"}</div>
+        <div><span style="opacity:.7; font-weight:700;">الاسم:</span> ${
+          order.customer_name || "-"
+        }</div>
+        <div><span style="opacity:.7; font-weight:700;">الموبايل:</span> ${
+          order.customer_phone || "-"
+        }</div>
+        <div><span style="opacity:.7; font-weight:700;">المحافظة:</span> ${
+          order.governorate || "-"
+        }</div>
+        <div><span style="opacity:.7; font-weight:700;">العنوان:</span> ${
+          order.customer_address || "-"
+        }</div>
       `
     );
 
@@ -213,8 +229,21 @@ async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
       left.appendChild(n);
       left.appendChild(d);
 
+      {/* ✅ NEW: notes in receipt */}
+      if (it.notes) {
+        const notesLine = document.createElement("div");
+        notesLine.textContent = `ملاحظات: ${it.notes}`;
+        notesLine.style.fontSize = "11.5px";
+        notesLine.style.opacity = "0.75";
+        notesLine.style.fontWeight = "700";
+        notesLine.style.marginTop = "4px";
+        left.appendChild(notesLine);
+      }
+
       const right = document.createElement("div");
-      right.textContent = formatEGP(Number(it.price) * Number(it.quantity || 1));
+      right.textContent = formatEGP(
+        Number(it.price) * Number(it.quantity || 1)
+      );
       right.style.fontWeight = "900";
       right.style.color = "#FDE68A";
       right.style.whiteSpace = "nowrap";
@@ -293,7 +322,11 @@ async function downloadReceiptSafe({ order, brandName, brandLogo, showToast }) {
     link.href = canvas.toDataURL("image/png");
     link.click();
 
-    showToast?.({ type: "success", title: "تم التحميل", message: "تم تحميل الإيصال بنجاح." });
+    showToast?.({
+      type: "success",
+      title: "تم التحميل",
+      message: "تم تحميل الإيصال بنجاح.",
+    });
   } catch (e) {
     console.error("RECEIPT DOWNLOAD ERROR:", e);
     showToast?.({
@@ -487,7 +520,9 @@ export default function Order({
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from("payments").getPublicUrl(uploadData.path);
+      const { data: urlData } = supabase.storage
+        .from("payments")
+        .getPublicUrl(uploadData.path);
 
       publicUrl = urlData.publicUrl;
 
@@ -508,6 +543,7 @@ export default function Order({
           image: item.image || "",
           quantity: item.quantity || 1,
           price: item.price,
+          notes: item.notes || null, // ✅ NEW
         })),
       };
 
@@ -517,7 +553,13 @@ export default function Order({
       setSuccess(true);
       setOrderData({ ...order, created_at: new Date().toISOString() });
 
-      setForm({ name: "", phone: "", governorate: "", address: "", paymentFile: null });
+      setForm({
+        name: "",
+        phone: "",
+        governorate: "",
+        address: "",
+        paymentFile: null,
+      });
       setPreview(null);
 
       onPlaceOrder?.(order);
@@ -564,13 +606,19 @@ export default function Order({
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
               <Check size={30} className="text-white" />
             </div>
-            <div className="mt-3 text-lg font-extrabold text-white">تم تسجيل طلبك بنجاح</div>
+            <div className="mt-3 text-lg font-extrabold text-white">
+              تم تسجيل طلبك بنجاح
+            </div>
             <div className="mt-1 text-sm font-semibold text-white/70">
               شكراً لاختيارك {brandName}
             </div>
           </div>
 
-          <ReceiptCard order={orderData} brandName={brandName} brandLogo={brandLogo} />
+          <ReceiptCard
+            order={orderData}
+            brandName={brandName}
+            brandLogo={brandLogo}
+          />
 
           <button
             type="button"
@@ -593,14 +641,19 @@ export default function Order({
             </div>
             <div>
               <h2 className="text-lg font-extrabold text-white">بيانات العميل</h2>
-              <p className="text-xs font-semibold text-white/60">املأ البيانات لإتمام الطلب</p>
+              <p className="text-xs font-semibold text-white/60">
+                املأ البيانات لإتمام الطلب
+              </p>
             </div>
           </div>
 
           <div className="mt-5 space-y-4">
             {/* الاسم */}
             <div className="relative">
-              <User size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50" />
+              <User
+                size={18}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50"
+              />
               <input
                 name="name"
                 value={form.name}
@@ -612,7 +665,10 @@ export default function Order({
 
             {/* الهاتف */}
             <div className="relative">
-              <Phone size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50" />
+              <Phone
+                size={18}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50"
+              />
               <input
                 name="phone"
                 value={form.phone}
@@ -644,7 +700,9 @@ export default function Order({
                 />
 
                 <span className={selectedGov ? "text-white" : "text-white/55"}>
-                  {selectedGov ? `${selectedGov.label} — ${selectedGov.fee} جنيه` : "اختر المحافظة..."}
+                  {selectedGov
+                    ? `${selectedGov.label} — ${selectedGov.fee} جنيه`
+                    : "اختر المحافظة..."}
                 </span>
 
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70">
@@ -690,7 +748,9 @@ export default function Order({
                       "
                     >
                       {filteredGovs.length === 0 ? (
-                        <div className="px-4 py-3 text-sm font-bold text-white/60">لا توجد نتائج</div>
+                        <div className="px-4 py-3 text-sm font-bold text-white/60">
+                          لا توجد نتائج
+                        </div>
                       ) : (
                         filteredGovs.slice(0, 100).map((g) => (
                           <button
@@ -746,7 +806,8 @@ export default function Order({
                 صورة التحويل
               </div>
               <div className="text-xs font-semibold text-white/60">
-                (نص المبلغ فودافون كاش: <span className="text-yellow-200">01004201439</span>)
+                (نص المبلغ فودافون كاش:{" "}
+                <span className="text-yellow-200">01004201439</span>)
               </div>
 
               <input
@@ -774,7 +835,11 @@ export default function Order({
 
               {preview && (
                 <div className="mt-2 overflow-hidden rounded-2xl border border-white/15">
-                  <img src={preview} alt="preview" className="h-36 w-full object-cover" />
+                  <img
+                    src={preview}
+                    alt="preview"
+                    className="h-36 w-full object-cover"
+                  />
                 </div>
               )}
             </div>
@@ -789,8 +854,12 @@ export default function Order({
             {/* ✅ الإجماليات بعد التعديل */}
             <div className="rounded-2xl border border-white/15 bg-white/10 p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-extrabold text-white/85">إجمالي المنتجات</span>
-                <span className="text-lg font-extrabold text-white">{formatEGP(finalTotal)}</span>
+                <span className="text-sm font-extrabold text-white/85">
+                  إجمالي المنتجات
+                </span>
+                <span className="text-lg font-extrabold text-white">
+                  {formatEGP(finalTotal)}
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -815,7 +884,9 @@ export default function Order({
               <div className="h-px w-full bg-white/10" />
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-extrabold text-white/85">الإجمالي النهائي</span>
+                <span className="text-sm font-extrabold text-white/85">
+                  الإجمالي النهائي
+                </span>
                 <span className="text-2xl font-extrabold text-yellow-200">
                   {formatEGP(totalWithShipping)}
                 </span>

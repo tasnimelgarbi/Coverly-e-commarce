@@ -30,14 +30,15 @@ const ANDROID_HINTS = {
   OPPO: "مثال: Reno 8 / A78 / Find X5",
   HONOR: "مثال: X9a / Magic 6 / X8",
   HUAWEI: "مثال: Nova 11 / P60 / Mate 50",
-  realme: "مثال: 11 Pro / C55 / GT Neo",
+  realme: "مثال: 11 Pro / C55 / note 50",
   Redmi: "مثال: Note 12 / Note 13 / 12C",
   Xiaomi: "مثال: 13T / 12T / Poco X5",
   vivo: "مثال: V29 / Y36 / V27",
-  Infinix: "مثال: Note 30 / Hot 40 / Zero",
+  Infinix: "مثال: Note 30 / Hot 40",
 };
 
 const IPHONE_MODELS = [
+  "iphone 6s plus",
   "iPhone 7",
   "iPhone 7 Plus",
   "iPhone 8",
@@ -329,6 +330,9 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
 
   const [isAdding, setIsAdding] = useState(false);
 
+  // ✅ NEW: notes
+  const [notes, setNotes] = useState("");
+
   // ✅ keep UI responsive when changing selects/inputs in big grids
   const [, startTransition] = useTransition();
 
@@ -358,6 +362,7 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
     setIphoneModel("");
     setAndroidBrand("");
     setAndroidModel("");
+    setNotes(""); // ✅ NEW
   }, []);
 
   const onDeviceChange = useCallback(
@@ -375,6 +380,7 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
         setIphoneModel("");
         setAndroidBrand("");
         setAndroidModel("");
+        setNotes(""); // ✅ NEW
       });
     },
     [device, resetAll, startTransition]
@@ -403,6 +409,7 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
       androidModel: device === "Android" ? androidModel.trim() : null,
       price,
       image: img,
+      notes: notes.trim() || null, // ✅ NEW
       quantity: 1,
     };
 
@@ -429,6 +436,7 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
     price,
     img,
     id,
+    notes,
     resetAll,
   ]);
 
@@ -739,6 +747,31 @@ const ProductCard = memo(function ProductCard({ id, img, name = "Coverly Case" }
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ✅ NEW: Notes (optional) */}
+          {((device === "iPhone" && caseType && iphoneModel) ||
+            (device === "Android" && androidBrand && androidModel.trim())) && (
+            <div className="mt-4 space-y-1" dir="rtl">
+              <label className="text-white/80 text-xs font-black">
+                ملاحظات إضافية (اختياري)
+              </label>
+
+              <textarea
+                value={notes}
+                onChange={(e) =>
+                  startTransition(() => setNotes(e.target.value))
+                }
+                rows={3}
+                placeholder="في حالة الكابلز اكتب هنا الشكل اللي محتاجه للنوع ده / تعديل الوان / تعديل شيء في التصميم.."
+                className="
+                  w-full rounded-[22px] border-2 border-black/70 bg-white/10
+                  px-4 py-3 text-sm font-black text-white
+                  placeholder:text-white/50
+                  focus:outline-none focus:ring-2 focus:ring-yellow-200/25
+                "
+              />
             </div>
           )}
 
