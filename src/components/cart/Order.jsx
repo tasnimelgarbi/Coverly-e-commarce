@@ -12,9 +12,10 @@ import {
   MapPinned,
 } from "lucide-react";
 import html2canvas from "html2canvas";
-import { supabase } from "../../../supabaseClient";
+import { ordersApi, uploadApi } from "../../services/api.js";
 
 import Toast from "../ui/Toast";
+import ProgressToast from "../ui/ProgressToast";
 import ReceiptCard from "../order/ReceiptCard";
 import DiscountCodeBox from "../order/DiscountCodeBox";
 import { motion, AnimatePresence } from "framer-motion";
@@ -457,6 +458,7 @@ export default function Order({
   const [success, setSuccess] = useState(false);
   const [orderData, setOrderData] = useState(null);
   const [payError, setPayError] = useState(false);
+  const [pToast, setPToast] = useState({ open: false, title: "", message: "", progress: 0, done: false });
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -471,6 +473,20 @@ export default function Order({
       setForm((p) => ({ ...p, [name]: value }));
     }
   };
+
+function isDataUrl(v) {
+  return typeof v === "string" && v.startsWith("data:image/");
+}
+
+async function dataUrlToFile(dataUrl, filename = "design.jpg") {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type || "image/jpeg" });
+}
+
+function pickUploadUrl(up) {
+  return up?.url || up?.secure_url || up?.data?.url || up?.data?.secure_url || null;
+}
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
@@ -506,25 +522,67 @@ export default function Order({
     }
 
     setLoading(true);
+    setPToast({ open: true, title: "جاري التحضير…", message: "جاري تحضير أوردرِك للطلب", progress: 3, done: false });
 
     try {
       let publicUrl = null;
+      const customCount = cart.filter((x) => x?.customImage).length;
+      const totalSteps = 1 + customCount + 1; // payment + designs + create order
+      let doneSteps = 0;
 
-      const file = form.paymentFile;
-      const fileExt = file.name.split(".").pop().toLowerCase();
-      const fileName = `payment-${Date.now()}.${fileExt}`;
+      const tick = (msg) => {
+        doneSteps++;
+        const p = Math.round((doneSteps / totalSteps) * 100);
+        setPToast((prev) => ({ ...prev, message: msg, progress: p }));
+      };
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("payments")
-        .upload(fileName, file, { upsert: true });
+      // ✅ NEW: upload to our backend (Cloudinary) بدل Supabase Storage
+      const up = await uploadApi.payment(form.paymentFile);
+      publicUrl = up?.url || up?.secure_url || up?.data?.url || null;
 
-      if (uploadError) throw uploadError;
+      if (!publicUrl) {
+        throw new Error("تعذر رفع صورة التحويل. حاول مرة أخرى.");
+      }
+      tick("تم رفع صورة التحويل ✓");
 
-      const { data: urlData } = supabase.storage
-        .from("payments")
-        .getPublicUrl(uploadData.path);
+      // ✅ FIXED: Upload EACH custom product image separately
+      const base64ToFile = async (dataUrl, filename = `design-${Date.now()}.jpg`) => {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        return new File([blob], filename, { type: blob.type || "image/jpeg" });
+      };
 
-      publicUrl = urlData.publicUrl;
+      // Find all custom items and upload their images in parallel
+      const customImageUrls = {};
+      const uploadPromises = cart
+        .map(async (item, idx) => {
+          if (!item?.customImage) return;
+          
+          const imgVal = item?.image;
+          
+          // Only upload if it's base64
+          if (imgVal && String(imgVal).startsWith("data:image/")) {
+            const designFile = await base64ToFile(imgVal);
+            const upDesign = await uploadApi.design(designFile);
+            const designUrl = upDesign?.url || upDesign?.secure_url || upDesign?.data?.url || null;
+            
+            if (!designUrl) {
+              throw new Error("تعذر رفع تصميم الجراب. حاول مرة أخرى.");
+            }
+            
+            customImageUrls[idx] = designUrl;
+            tick(`تم رفع التصميم (${Object.keys(customImageUrls).length}/${customCount}) ✓`);
+          } else if (imgVal && String(imgVal).startsWith("http")) {
+            customImageUrls[idx] = imgVal;
+            tick(`تم رفع التصميم (${Object.keys(customImageUrls).length}/${customCount}) ✓`);
+          }
+        })
+        .filter(Boolean);
+
+      // Wait for all uploads to complete in parallel
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+      }
 
       const order = {
         customer_name: form.name,
@@ -533,22 +591,22 @@ export default function Order({
         governorate: form.governorate,
         shipping_fee: shippingFee,
         payment_image: publicUrl,
-
-        // ✅ الإجمالي النهائي بعد الخصم + الشحن
         total_amount: totalWithShipping,
-
-        products: cart.map((item) => ({
+        products: cart.map((item, idx) => ({
           name: item.name,
           type: item.type || "",
-          image: item.image || "",
+          image: item.customImage ? (customImageUrls[idx] || "") : (item.image || ""),
           quantity: item.quantity || 1,
           price: item.price,
           notes: item.notes || null, // ✅ NEW
         })),
       };
 
-      const { error } = await supabase.from("orders").insert([order]);
-      if (error) throw error;
+      // ✅ NEW: insert via backend API بدل Supabase Table
+      await ordersApi.create(order);
+      tick("تم إنشاء الطلب ✓");
+
+      setPToast((prev) => ({ ...prev, progress: 100, done: true, title: "تم بنجاح 🎉", message: "تم حفظ طلبك بنجاح" }));
 
       setSuccess(true);
       setOrderData({ ...order, created_at: new Date().toISOString() });
@@ -571,6 +629,7 @@ export default function Order({
       });
     } catch (err) {
       console.error("ORDER ERROR:", err);
+      setPToast((prev) => ({ ...prev, open: false }));
       showToast({
         type: "error",
         title: "حدث خطأ",
@@ -598,6 +657,14 @@ export default function Order({
         title={toast.title}
         message={toast.message}
         onClose={closeToast}
+      />
+      <ProgressToast
+        open={pToast.open}
+        title={pToast.title}
+        message={pToast.message}
+        progress={pToast.progress}
+        done={pToast.done}
+        onClose={() => setPToast((p) => ({ ...p, open: false }))}
       />
 
       {success && orderData ? (

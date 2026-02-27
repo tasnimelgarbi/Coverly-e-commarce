@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "../header/Header";
 import ProductCard from "./Productcard";
-import { supabase } from "../../../supabaseClient";
+import { productsApi } from "../../services/api";
 import PageHeroBanner from "./PageHeroBanner";
 import {
   ChevronLeft,
@@ -13,7 +13,7 @@ import {
   Flower2,
   PawPrint,
   Waves,
-  Sparkles,
+  Sparkles, 
   Trophy,
   Image as ImageIcon,
   Grid3X3,
@@ -78,31 +78,35 @@ export default function CategoryProducts() {
     [totalProducts]
   );
 
-  const fetchCategoryProducts = async (page = 1) => {
-    setLoading(true);
+ const fetchCategoryProducts = async (page = 1) => {
+  setLoading(true);
 
+  try {
+    // 1) هات كل المنتجات من الباك اند
+    const all = await productsApi.list();
+
+    // 2) فلترة على القسم
+    const filtered = (all || []).filter((p) => p.category_slug === slug);
+
+    // 3) ترتيب (زي ما كنت بتعمل order created_at desc)
+    filtered.sort((a, b) => {
+      const da = new Date(a.created_at || 0).getTime();
+      const db = new Date(b.created_at || 0).getTime();
+      return db - da;
+    });
+
+    // 4) Pagination محلي (بدل range بتاعة Supabase)
     const start = (page - 1) * productsPerPage;
-    const end = start + productsPerPage - 1;
+    const end = start + productsPerPage;
 
-    const { data, error, count } = await supabase
-      .from("products")
-      .select("*", { count: "exact" })
-      .eq("category_slug", slug)
-      .order("created_at", { ascending: false })
-      .range(start, end);
-
-    if (error) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    setProducts(data || []);
-    setTotalProducts(count || 0);
-
-    // ✅ شيلنا انتظار تحميل الصور
+    setTotalProducts(filtered.length);
+    setProducts(filtered.slice(start, end));
+  } catch (e) {
+    console.error(e);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   useEffect(() => {
     setCurrentPage(1);
