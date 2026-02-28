@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaCommentDots } from "react-icons/fa";
-import { supabase } from "../../../supabaseClient";
 
 export default function FeedbackSectionV2() {
   const [imagesArray, setImagesArray] = useState([]);
@@ -11,21 +10,34 @@ export default function FeedbackSectionV2() {
   const rafRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // ✅ نفس الربط بتاع Supabase بالظبط
+  const API_BASE = import.meta.env.VITE_API_BASE;
+
+  // ✅ بدل Supabase: هات الصور من الباك إند
   const fetchImages = async () => {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.from("feedback").select("image_url");
-
-      if (error) {
+      if (!API_BASE) {
+        console.error("❌ VITE_API_BASE is missing in .env");
+        setImagesArray([]);
         setIsLoading(false);
         return;
       }
 
+      const res = await fetch(`${API_BASE}/feedbacks`);
+      if (!res.ok) {
+        console.error("❌ Failed to fetch feedbacks:", res.status);
+        setImagesArray([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+
+      // backend بيرجع rows فيها: id, image, created_at
       if (Array.isArray(data) && data.length > 0) {
         const urls = data
-          .map((item) => item.image_url)
+          .map((item) => item?.image_url)
           .filter((url) => url !== null && url !== "");
 
         setImagesArray(urls);
@@ -43,6 +55,7 @@ export default function FeedbackSectionV2() {
 
   useEffect(() => {
     fetchImages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = imagesArray.length;
@@ -122,12 +135,12 @@ export default function FeedbackSectionV2() {
         <div className="mx-auto w-full max-w-6xl px-4">
           {/* Header */}
           <div className="flex flex-col items-center gap-4 text-center relative">
-
-  {/* subtle glow خلف العنوان */}
+            {/* subtle glow خلف العنوان */}
             <div className="absolute -top-10 h-32 w-72 bg-yellow-400/20 blur-3xl rounded-full pointer-events-none" />
 
             {/* Badge */}
-            <div className="
+            <div
+              className="
               inline-flex items-center gap-2 
               rounded-full 
               border border-yellow-300/30 
@@ -137,27 +150,25 @@ export default function FeedbackSectionV2() {
               text-yellow-300
               backdrop-blur
               shadow-[0_0_25px_rgba(250,204,21,0.15)]
-            ">
+            "
+            >
               <FaCommentDots className="text-yellow-300" />
               <span>آراء عملائنا</span>
             </div>
 
             {/* Main Title */}
-            <h2 className="
+            <h2
+              className="
               text-3xl md:text-5xl 
               font-extrabold 
               tracking-tight 
               text-white
               leading-tight
-            ">
-              تجارب حقيقية تثبت جودة 
-              <span className="block text-yellow-300 mt-1">
-                Coverly
-              </span>
+            "
+            >
+              تجارب حقيقية تثبت جودة
+              <span className="block text-yellow-300 mt-1">Coverly</span>
             </h2>
-
-
-
           </div>
 
           {/* Card rail */}
