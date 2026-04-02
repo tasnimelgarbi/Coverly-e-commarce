@@ -872,9 +872,21 @@ function pickUploadUrl(up) {
                 <CreditCard size={16} />
                 صورة التحويل
               </div>
-              <div className="text-xs font-semibold text-white/60">
-                (نص المبلغ فودافون كاش:{" "}
-                <span className="text-yellow-200">01004201439</span>)
+              <div className="text-sm font-semibold text-white/80 leading-relaxed">
+                ديبوزت نصف المبلغ عبر{" "}
+                <span className="text-yellow-300 font-large"><span className="text-amber-100">[ </span>إنستا باي<span className="text-amber-100"> ]</span></span>:
+                <br />
+
+                <span className="text-yellow-200">01004201439</span>
+                <br />
+                أو
+                <br />
+                <span className="text-yellow-200">01007349516</span>
+
+                <br />
+                <span className="text-white/60 text-xs">
+                  (يُرجى توضيح الرقم المُحوَّل إليه مع الاسكرين)
+                </span>
               </div>
 
               <input
