@@ -37,7 +37,7 @@ const CATEGORIES = [
   { slug: "mats", label: "سجاد" },
   { slug: "sea", label: "بحر" },
   { slug: "specialized", label: "تخصصات"},
-  { slug: "creative", label: "متنوع"},
+  { slug: "creative", label: "نسوية"},
 ];
 
 export default function CategoryProducts() {

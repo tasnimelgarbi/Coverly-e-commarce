@@ -97,9 +97,9 @@ const CATEGORIES = [
     img: "https://i.ibb.co/5gnc8X66/Chat-GPT-Image-Feb-22-2026-03-45-13-AM.png",
   },
    {
-    label: "متنوع",
+    label: "نسوية",
     slug: "creative",
-    img: "https://i.ibb.co/1Y6HVGLL/Chat-GPT-Image-Feb-25-2026-06-24-06-AM.png",
+    img: "https://i.ibb.co/SXMpfxT4/Chat-GPT-Image-May-12-2026-05-47-59-PM.png",
   },
    {
     label: "تخصصات",
